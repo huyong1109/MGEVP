@@ -1,0 +1,7 @@
+AFILES = io.f90 sevp.f90 domain.f90 main.f90 
+CFILES =  
+OFILES = 
+SFILES = 
+MFILES = 
+GFILES =
+PFILES = 
