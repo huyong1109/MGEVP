@@ -1,26 +1,26 @@
 module domain
-    implicit none 
-    integer, parameter      :: nx = 8    ! grid numbers along x-direction
-    !integer, parameter      :: ny = 80     ! grid numbers along y-direction
-    integer, parameter      :: ny = 8     ! grid numbers along y-direction
-    real(8), parameter      :: r1 = 1.0d0 ! double 1.
-    real(8), parameter      :: r0 = 0.0d0 ! double 0.
-    real(8), parameter      :: PI = 4.d0*datan(r1) !pi
-    real(8), parameter      :: lx = PI    ! domain size along x-direction
-    real(8), parameter      :: ly = r1    ! domain size along y-direction
-    real(8), parameter      :: hx = lx/nx ! grid size along x-direction
-    real(8), parameter      :: hy = ly/ny ! grid size along y-direction
-    real(8), dimension(1:nx,1:ny)    :: ax, ay, bb, cx, cy ! A coefficient
-    real(8), dimension(0:nx+1,0:ny+1)    :: u ! variable
-    real(8), dimension(0:nx+1,0:ny+1)    :: b ! right hand value
+  implicit none 
+  integer, parameter      :: nx = 8    ! grid numbers along x-direction
+  !integer, parameter      :: ny = 80     ! grid numbers along y-direction
+  integer, parameter      :: ny = 8     ! grid numbers along y-direction
+  real(8), parameter      :: r1 = 1.0d0 ! double 1.
+  real(8), parameter      :: r0 = 0.0d0 ! double 0.
+  real(8), parameter      :: PI = 4.d0*datan(r1) !pi
+  real(8), parameter      :: lx = PI    ! domain size along x-direction
+  real(8), parameter      :: ly = r1    ! domain size along y-direction
+  real(8), parameter      :: hx = lx/nx ! grid size along x-direction
+  real(8), parameter      :: hy = ly/ny ! grid size along y-direction
+  real(8), dimension(1:nx,1:ny)    :: ax, ay, bb, cx, cy ! A coefficient
+  real(8), dimension(0:nx+1,0:ny+1)    :: u ! variable
+  real(8), dimension(0:nx+1,0:ny+1)    :: b ! right hand value
 
 
-    ! evp variables
-    integer, parameter                            :: nblock = 4
-    integer, parameter                            :: nblk = ny/nblock
-    integer, dimension(0:nblk)			  :: ie
+  ! evp variables
+  integer, parameter                            :: nblock = 4
+  integer, parameter                            :: nblk = ny/nblock
+  integer, dimension(0:nblk)                    :: ie
 
-    real(8), dimension(nx, nx, nblk) :: rinv,rinv1
+  real(8), dimension(nx, nx, nblk) :: rinv,rinv1
 
 
 contains
@@ -133,7 +133,7 @@ contains
             flag  = flag + 1
             print *, '(', i, ',', j, ')'
             write(*,'(6f8.4)') b(i,j) , ax(i,j), ay(i,j), cx(i,j),  cy(i,j), bb(i,j)
-	    write(*,'(6f8.4)') tmp, u(i-1,j), u(i+1,j), u(i,j-1), u(i,j+1), u(i,j)
+            write(*,'(6f8.4)') tmp, u(i-1,j), u(i+1,j), u(i,j-1), u(i,j+1), u(i,j)
         endif 
    end do 
    end do 
