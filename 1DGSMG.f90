@@ -2,7 +2,7 @@
 program main 
   real,dimension(518) :: r, f
   real :: d0,d1,s,t,u
-  integer :: i,it,j,k,l,ll,m,n,nl
+  integer :: i,it,j,k,l,ll,m,n,nl,lev, iter
 
   ! set problem 
   k = 6 
@@ -34,16 +34,33 @@ program main
   j = 0
 
   ! Gauss-Seidel Iteration 
-  do 
-  d0 = d1
-  d1 = 0.0
-  j = j + 1 
+  do  lev = 1, 6! for multigrid level
+    j = 0
+    do j  = 1, it
+      d0 = d1
+      d1 = 0.0
+      do i = 1, ll-1
+        s = 0.5*(f(i-1)+f(i+1)+r(i))
+        d1 = d1 +abs(s-f(i))
+        f(i) = s
+      end do 
+      write(*,*) 'DIFF: ', d1 
+    end do 
+    if (d1 .lt. t) exit
 
-  do i = 1, ll-1
-    s = 0.5*(f(i-1)+f(i+1)+r(i))
-    d1 = d1 +abs(s-f(i))
-    f(i) = s
-  end do 
+    do while (d1/d0) .lt. u) 
+      d0 = d1
+      d1 = 0.0
+      s = 0.5*(f(i-1)+f(i+1)+r(i))
+      d1 = d1 +abs(s-f(i))
+      f(i) = s
+      write(*,*) 'DIFF: ', d1 
+    end do 
+
+
+    end do 
+  
+
 
 
 
