@@ -8,7 +8,7 @@ program main
   integer, parameter :: tgrid = (8*(4**nlev -1) +21*nlev)/9 ! total grids all level 
   !integer, parameter :: tingrid = (8*(4**(nlev-1) -1) &     ! total inner grid 
   !    +21*(nlev-1))/9  +1-2*(nlev- 1)
-  real,dimension(tgrid) :: r, f
+  real,dimension(tgrid) :: r, f,x,xt
   real,dimension(tgrid) :: ax,cx,bx
   real,dimension(tgrid -ngrid +3) :: rinv
 
@@ -51,18 +51,35 @@ program main
 
   ! input right side
   do i = 1, ngrid
-    r(i) = 1.0 
+    f(i) = 1.0 
   end do 
   s = (1.0/(n-1))**2
   do i = 1, ngrid 
-    r(i) = s*r(i)
+    f(i) = s*f(i)
   end do 
 
   
   ! initalization 
   do i = 1, tgrid
-    f(i) = 0.0
+    r(i) = 0.0
+    x(i) = 0.0
+    xt(i) = 0.0
   end do 
+
+  ! traditional iteration 
+  call grid_num(nlev,n,tn,ln)
+  j=1
+  k =1
+  call calc_rhs(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),x(j:j+n-1),f(j:j+n-1),r(j:j+n-1),n)
+  do i = 1, 10 
+    xt(j:j+n-1) = 0.
+    call lev_evp(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),rinv(k+1:k+ln-2),xt(j:j+n-1),r(j:j+n-1),n,ln)
+    f(j:j+n-1) = r(j:j+n-1)
+    x(j:j+n-1) = x(j:j+n-1)+xt(j:j+n-1)
+    call calc_rhs(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),xt(j:j+n-1),f(j:j+n-1),r(j:j+n-1),n)
+    write(*,'(13f8.3)') x(j:j+n-1) 
+  end do 
+
 
 
 end program
@@ -99,37 +116,29 @@ subroutine lev_pre(ax,cx,bx,rinv,n,ln)
 end subroutine 
 
 ! solve each block in one level
-subroutine lev_evp(ax,cx,bx,x,r,n)
+subroutine lev_evp(ax,cx,bx,rinv,x,r,n,ln)
   implicit none
-  integer,intent(in) :: n
+  integer,intent(in) :: n,ln
   real,dimension(n),intent(in) :: ax,cx,bx
   real,dimension(n),intent(in) :: r
+  real,dimension(ln-2),intent(in) :: rinv
   real,dimension(n),intent(inout) :: x
 
   !local 
-  integer :: i
-end subroutine 
-
-! 5 points PRE
-subroutine pre(ax,cx,bx,rinv)
-  implicit none
-  integer,parameter :: n = 5
-  real,dimension(n),intent(in) :: ax,cx,bx
-
-  real, intent(inout) :: rinv
-
-  !local 
-  integer :: i
-  real,dimension(n) :: y
-
-  y(:) = 0.0
-  y(2) = 1.0
-  do i = 2, n-1
-    y(i+1) = ( -ax(i)*y(i-1)-cx(i)*y(i))/bx(i)
+  integer :: i,j
+  j = 0
+  do i = 1, n-1, 4
+    j = j+1
+    !write(*,*) 'j=',j,'i=',i,'i+4',i+4
+   call evp(ax(i:i+4), cx(i:i+4),bx(i:i+4),rinv(j),x(i:i+4),r(i:i+4))
   end do
+  do i = 3, n-1, 4
+   x(i) = 0.25*(2.0*x(i) + x(i-1)+x(i+1))
+  end do
+  
 
-  rinv = -1.0/y(5)
 end subroutine 
+
 ! 5 points EVP 
 subroutine evp(ax,cx,bx,rinv,x,r)
   implicit none
@@ -153,6 +162,27 @@ subroutine evp(ax,cx,bx,rinv,x,r)
   do i = 2, n-1
     x(i+1) = (r(i) -ax(i)*x(i-1)-cx(i)*x(i))/bx(i)
   end do
+end subroutine 
+
+! 5 points PRE
+subroutine pre(ax,cx,bx,rinv)
+  implicit none
+  integer,parameter :: n = 5
+  real,dimension(n),intent(in) :: ax,cx,bx
+
+  real, intent(inout) :: rinv
+
+  !local 
+  integer :: i
+  real,dimension(n) :: y
+
+  y(:) = 0.0
+  y(2) = 1.0
+  do i = 2, n-1
+    y(i+1) = ( -ax(i)*y(i-1)-cx(i)*y(i))/bx(i)
+  end do
+
+  rinv = -1.0/y(5)
 end subroutine 
 
 subroutine grid_num(lev, lgrid,tgrid,lowgrid)
