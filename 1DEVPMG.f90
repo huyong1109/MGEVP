@@ -16,17 +16,18 @@ program main
   !integer :: grid_num
 
   ! local variable
-  real :: s
+  real :: s,tmp
   integer :: i,j,k,n,tn,ln
 
 
+  print *, '1D Multigrid EVP solver'
 
   ! set problem 
   j = 1
   k =1
-  do i = nlev,1
+  do i = nlev,1,-1
     call grid_num(i,n,tn,ln)
-    tmp = 1.0/real(4**(2(nlev-i)))
+    tmp = 1.0/real(4**(2*(nlev-i)))
     ax(j+1:j+n-2) = tmp
     bx(j+1:j+n-2) = tmp
     cx(j+1:j+n-2) = -2.0*tmp
@@ -37,7 +38,7 @@ program main
     cx(j+n-2) = -3.0*tmp
     end if 
 
-    lev_rep(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),rinv(k+1:k+ln-2),n)
+    call lev_rep(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),rinv(k+1:k+ln-2),n,ln)
     j = j+n 
     k = k +ln
     print *, 'lev : ',i, ' ax_end : ', j, ' rinv_end :', k
@@ -75,11 +76,11 @@ subroutine calc_rhs(ax,cx,bx,x,f,r,n)
   end do
 end subroutine 
 
-subroutine lev_rep(ax,cx,bx,rinv,n)
+subroutine lev_rep(ax,cx,bx,rinv,n,ln)
   implicit none
-  integer,intent(in) :: n,ln ! grid number of current and lower (coarser) levels
+  integer,intent(in) :: n,ln! grid number of current and lower (coarser) levels
   real,dimension(n),intent(in) :: ax,cx,bx
-  real,dimension(:),intent(in) :: rinv
+  real,dimension(ln),intent(in) :: rinv
 
   !local 
   integer :: i,j
@@ -100,16 +101,13 @@ subroutine lev_evp(ax,cx,bx,x,r,n)
 
   !local 
   integer :: i
-  do i = 2, n-1
-    r(i) = f(i) -ax(i)*x(i-1)-cx(i)*x(i)-bx(i)*x(i+1)
-  end do
 end subroutine 
 
 ! 5 points REP
-subroutine rep(ax,cx,bx,rinv)
+subroutine rep(ax,cx,bx,rinv,r)
   implicit none
   integer,parameter :: n = 5
-  real,dimension(n),intent(in) :: ax,cx,bx
+  real,dimension(n),intent(in) :: ax,cx,bx,r
 
   real, intent(inout) :: rinv
 
@@ -165,6 +163,7 @@ subroutine grid_num(lev, lgrid,tgrid,lowgrid)
     lowgrid = 1
   else 
     print *, '!!!Error: LEV should be positive integer '
+    stop
   end if 
 
   if (mod(lgrid, 3) .ne. 0) then 
