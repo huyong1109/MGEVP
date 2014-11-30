@@ -10,7 +10,7 @@ program main
   !    +21*(nlev-1))/9  +1-2*(nlev- 1)
   real,dimension(tgrid) :: r, f
   real,dimension(tgrid) :: ax,cx,bx
-  real,dimension(tgrid -ngrid ) :: rinv
+  real,dimension(tgrid -ngrid +3) :: rinv
 
   ! function 
   !integer :: grid_num
@@ -38,10 +38,15 @@ program main
     cx(j+n-2) = -3.0*tmp
     end if 
 
-    call lev_rep(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),rinv(k+1:k+ln-2),n,ln)
+    print *, 'lev',i, 'n',n,'tn',tn,'axs', j, 'rinvs', k
+    call lev_pre(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),rinv(k+1:k+ln-2),n,ln)
+
+    write(*,*) ax(j:j+n-1)
+    write(*,*) cx(j:j+n-1)
+    write(*,*) bx(j:j+n-1)
+    write(*,*) rinv(k:k+ln-1)
     j = j+n 
     k = k +ln
-    print *, 'lev : ',i, ' ax_end : ', j, ' rinv_end :', k
   end do 
 
   ! input right side
@@ -76,19 +81,21 @@ subroutine calc_rhs(ax,cx,bx,x,f,r,n)
   end do
 end subroutine 
 
-subroutine lev_rep(ax,cx,bx,rinv,n,ln)
+subroutine lev_pre(ax,cx,bx,rinv,n,ln)
   implicit none
   integer,intent(in) :: n,ln! grid number of current and lower (coarser) levels
   real,dimension(n),intent(in) :: ax,cx,bx
-  real,dimension(ln),intent(in) :: rinv
+  real,dimension(ln-2),intent(inout) :: rinv
 
   !local 
   integer :: i,j
   j = 0
-  do i = 1, n, 4
+  do i = 1, n-1, 4
     j = j+1
-    call rep(ax(i:i+4), cx(i:i+4),bx(i:i+4),rinv(j))
+    !write(*,*) 'j=',j,'i=',i,'i+4',i+4
+   call pre(ax(i:i+4), cx(i:i+4),bx(i:i+4),rinv(j))
   end do
+
 end subroutine 
 
 ! solve each block in one level
@@ -103,11 +110,11 @@ subroutine lev_evp(ax,cx,bx,x,r,n)
   integer :: i
 end subroutine 
 
-! 5 points REP
-subroutine rep(ax,cx,bx,rinv,r)
+! 5 points PRE
+subroutine pre(ax,cx,bx,rinv)
   implicit none
   integer,parameter :: n = 5
-  real,dimension(n),intent(in) :: ax,cx,bx,r
+  real,dimension(n),intent(in) :: ax,cx,bx
 
   real, intent(inout) :: rinv
 
@@ -118,7 +125,7 @@ subroutine rep(ax,cx,bx,rinv,r)
   y(:) = 0.0
   y(2) = 1.0
   do i = 2, n-1
-    y(i+1) = (r(i) -ax(i)*y(i-1)-cx(i)*y(i))/bx(i)
+    y(i+1) = ( -ax(i)*y(i-1)-cx(i)*y(i))/bx(i)
   end do
 
   rinv = -1.0/y(5)
@@ -157,14 +164,7 @@ subroutine grid_num(lev, lgrid,tgrid,lowgrid)
     
   lgrid = 2*4**lev + 7
   tgrid  = (8*(4**lev -1) +21*lev)/9
-  if (lev .gt. 1) then 
-    lowgrid = (2*4**(lev-1) + 7)/3
-  else if (lev .eq. 1 ) then 
-    lowgrid = 1
-  else 
-    print *, '!!!Error: LEV should be positive integer '
-    stop
-  end if 
+  lowgrid = (2*4**(lev-1) + 7)/3
 
   if (mod(lgrid, 3) .ne. 0) then 
     print *, 'Error in grid number',lgrid
