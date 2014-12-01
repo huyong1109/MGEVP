@@ -3,14 +3,15 @@
 program main 
   implicit none
   real,parameter :: rtol = 0.0001
-  integer, parameter :: nlev = 2
-  integer, parameter :: ngrid = (2*4**nlev+7)/3  ! grid num on finest level 
-  integer, parameter :: tgrid = (8*(4**nlev -1) +21*nlev)/9 ! total grids all level 
+  integer, parameter :: nlev = 5
+  integer, parameter :: choice = 2
+  integer, parameter :: ngrid = 4**nlev+1  ! grid num on finest level 
+  integer, parameter :: tgrid = 4*(4**nlev -1)/3 +nlev ! total grids all level 
   !integer, parameter :: tingrid = (8*(4**(nlev-1) -1) &     ! total inner grid 
   !    +21*(nlev-1))/9  +1-2*(nlev- 1)
   real,dimension(tgrid) :: r, f,x,xt
   real,dimension(tgrid) :: ax,cx,bx
-  real,dimension(tgrid -ngrid +3) :: rinv
+  real,dimension(tgrid -ngrid +2) :: rinv
 
   ! function 
   !integer :: grid_num
@@ -31,15 +32,9 @@ program main
     ax(j+1:j+n-2) = tmp
     bx(j+1:j+n-2) = tmp
     cx(j+1:j+n-2) = -2.0*tmp
-    if ( i .lt. nlev ) then 
-    ax(j+1) = 2.0*tmp
-    cx(j+1) = -3.0*tmp
-    bx(j+n-2) = 2.0*tmp
-    cx(j+n-2) = -3.0*tmp
-    end if 
 
     print *, 'lev',i, 'n',n,'tn',tn,'axs', j, 'rinvs', k
-    call lev_pre(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),rinv(k+1:k+ln-2),n,ln)
+    call lev_pre(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),rinv(k:k+ln-2),n,ln)
 
     write(*,*) ax(j:j+n-1)
     write(*,*) cx(j:j+n-1)
@@ -49,14 +44,7 @@ program main
     k = k +ln
   end do 
 
-  ! input right side
-  do i = 1, ngrid
-    f(i) = 1.0 
-  end do 
-  s = (1.0/(n-1))**2
-  do i = 1, ngrid 
-    f(i) = s*f(i)
-  end do 
+  call analytic_init(f,ngrid,choice)
 
   
   ! initalization 
@@ -68,33 +56,187 @@ program main
 
   ! traditional iteration 
   call grid_num(nlev,n,tn,ln)
-  j=1
-  k =1
-  call calc_rhs(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),x(j:j+n-1),f(j:j+n-1),r(j:j+n-1),n)
-  do i = 1, 10 
-    xt(j:j+n-1) = 0.
-    call lev_evp(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),rinv(k+1:k+ln-2),xt(j:j+n-1),r(j:j+n-1),n,ln)
-    f(j:j+n-1) = r(j:j+n-1)
-    x(j:j+n-1) = x(j:j+n-1)+xt(j:j+n-1)
-    call calc_rhs(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),xt(j:j+n-1),f(j:j+n-1),r(j:j+n-1),n)
-    write(*,'(13f8.3)') x(j:j+n-1) 
-  end do 
+  call MG(ax,cx,bx,rinv,x,f,nlev,n,tn,ln)
+  call analytic_check(x(1:n),ngrid,choice)
 
 
 
 end program
 
-subroutine calc_rhs(ax,cx,bx,x,f,r,n)
+subroutine analytic_init(f,n,choice)
+  integer,intent(in):: n,choice
+  real, dimension(n), intent(inout) :: f
+  
+  ! local 
+  real :: s,h,h2
+  real,parameter :: pi = 4.*atan(1.) 
+
+  ! input right side
+  f(:) = 0.0
+  h = 1.0/real(n-1)
+  h2= h**2
+
+  select case(choice)
+  case (1)
+    do i = 2, n-1
+      f(i) = -h2
+    end do 
+  case (2)
+
+    do i = 2, n-1
+      s = (i-1)*h
+      f(i) = -4.0*pi**2*sin(2*pi*s)*h2
+    end do 
+  case default
+    write(*,*) 'Unsupported initial case!'
+  end select
+
+  write(*,*) 'init f(:)'
+  write(*,*) f(:)
+  
+end subroutine
+subroutine analytic_check(x,n,choice)
+  integer,intent(in):: n,choice
+  real, dimension(n), intent(in) :: x
+  
+  ! local 
+  real :: h,s,e
+  real,parameter :: pi = 4.*atan(1.) 
+
+  write(*,*) '        i,      x ,     f,     err'
+
+  h = 1.0/real(n-1)
+  select case(choice)
+  case (1)
+  !=========== for u'' = -1=========
+    h = 1.0/real(n-1)
+    do i = 1, n
+      s = (i-1)*h
+      e = x(i) -0.5*s*(1.0-s)
+      write(*,*) i, s, x(i), e
+    end do 
+
+  case(2)
+  !=========== for u'' = -1=========
+    do i = 1, n
+      s = (i-1)*h
+      e = x(i) -sin(2.0*pi*s)
+      write(*,*) i, s, x(i), e
+    end do 
+  case default
+    write(*,*) 'Unsupported initial case!'
+  end select
+
+end subroutine
+
+
+recursive subroutine MG(ax,cx,bx,rinv,x,r,lev,n,tn,ln)
+  ! traditional iteration 
+  integer, intent(in) :: lev,n,tn,ln
+  !real, intent(inout) :: rr
+  real,dimension(tn),intent(in) :: ax,cx,bx
+  real,dimension(tn -n +2),intent(in) :: rinv
+  real,dimension(tn),intent(inout) :: r,x
+
+  integer :: i,j,k,j1,k1,j1n,k1n,n1,tn1,ln1,iter
+  real :: rr
+  real :: tol = 0.00001
+  real,dimension(tn) :: f,xt
+  
+  j=1
+  k =1
+  !tol = tol0/real(n)
+  !f(j:j+n-1) = r(j:j+n-1)
+  !call calc_rhs(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),x(j:j+n-1),f(j:j+n-1),r(j:j+n-1),n,rr)
+
+  xt(:) = 0.
+  call lev_evp(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),rinv(k:k+ln-2),xt(j:j+n-1),r(j:j+n-1),n,ln)
+  f(j:j+n-1) = r(j:j+n-1)
+  x(j:j+n-1) = x(j:j+n-1)+xt(j:j+n-1)
+  call calc_rhs(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),xt(j:j+n-1),f(j:j+n-1),r(j:j+n-1),n,rr)
+ 
+  write(*,*)  'LEV',lev, 'rr = ', rr, 'tol = ',tol
+  write(*,*) 'r'
+  write(*,'(17f7.4)') r(j:j+n-1) 
+  write(*,*) 'x'
+  write(*,'(17f7.4)') x(j:j+n-1) 
+   
+  if (lev .ne. 1) then
+    call grid_num(lev-1,n1,tn1,ln1)
+    j1 = j +n
+    j1n = j1 +tn1
+    k1 = k +ln
+    k1n = k1 +tn1-n1+2
+    iter  = 0
+    !do while ((rr .gt. tol) .and. (iter < 2) )
+    do while (rr .gt. tol)
+      iter = iter +1
+      ! coarsing 
+      call coarse_rhs(r(j:j+n+ln-1), n,ln)
+      xt(:) = 0.
+      call MG(ax(j1:j1n),cx(j1:j1n),bx(j1:j1n),rinv(k1:k1n),xt(j1:j1n),r(j1:j1n),lev-1,n1,tn1,ln1)
+      ! relaxing
+      call finer_x(xt(1:n+ln),n,ln) 
+      call lev_evp(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),rinv(k:k+ln-2),xt(j:j+n-1),r(j:j+n-1),n,ln)
+      f(j:j+n-1) = r(j:j+n-1)
+      x(j:j+n-1) = x(j:j+n-1)+xt(j:j+n-1)
+      call calc_rhs(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),xt(j:j+n-1),f(j:j+n-1),r(j:j+n-1),n,rr)
+      write(*,*)  'LEV',lev, 'rr = ', rr, 'tol = ',tol
+      write(*,*) 'r'
+      write(*,'(17f7.4)') r(j:j+n-1) 
+      write(*,*) 'x'
+      write(*,'(17f7.4)') x(j:j+n-1) 
+
+    end do 
+  end if 
+
+ 
+  
+  end subroutine
+
+subroutine coarse_rhs(r,n,ln)
+  implicit none
+  integer,intent(in) :: n,ln
+  real,dimension(n+ln),intent(inout) :: r
+
+  !local 
+  integer :: i,j
+  j = 2
+  r(n+1:n+ln) = 0.0
+  do i = 5, n-1, 4
+    r(n+j) = 0.25*r(i)
+    j = j+1
+  end do
+end subroutine 
+
+subroutine finer_x(x,n,ln)
+  implicit none
+  integer,intent(in) :: n,ln
+  real,dimension(n+ln),intent(inout) :: x
+
+  !local 
+  integer :: i,j
+  j = 2
+  do i = 5, n-1, 4
+    x(i) = x(i) +x(n+j)
+    j = j+1
+  end do
+end subroutine 
+
+subroutine calc_rhs(ax,cx,bx,x,f,r,n,rr)
   implicit none
   integer,intent(in) :: n
+  real, intent(inout) :: rr
   real,dimension(n),intent(in) :: ax,cx,bx
   real,dimension(n),intent(in) :: x,f
   real,dimension(n),intent(inout) :: r
 
   !local 
   integer :: i
+  rr = 0.0
   do i = 2, n-1
     r(i) = f(i) -ax(i)*x(i-1)-cx(i)*x(i)-bx(i)*x(i+1)
+    rr = rr + abs(r(i))
   end do
 end subroutine 
 
@@ -102,7 +244,7 @@ subroutine lev_pre(ax,cx,bx,rinv,n,ln)
   implicit none
   integer,intent(in) :: n,ln! grid number of current and lower (coarser) levels
   real,dimension(n),intent(in) :: ax,cx,bx
-  real,dimension(ln-2),intent(inout) :: rinv
+  real,dimension(ln-1),intent(inout) :: rinv
 
   !local 
   integer :: i,j
@@ -121,7 +263,7 @@ subroutine lev_evp(ax,cx,bx,rinv,x,r,n,ln)
   integer,intent(in) :: n,ln
   real,dimension(n),intent(in) :: ax,cx,bx
   real,dimension(n),intent(in) :: r
-  real,dimension(ln-2),intent(in) :: rinv
+  real,dimension(ln-1),intent(in) :: rinv
   real,dimension(n),intent(inout) :: x
 
   !local 
@@ -131,10 +273,15 @@ subroutine lev_evp(ax,cx,bx,rinv,x,r,n,ln)
     j = j+1
     !write(*,*) 'j=',j,'i=',i,'i+4',i+4
    call evp(ax(i:i+4), cx(i:i+4),bx(i:i+4),rinv(j),x(i:i+4),r(i:i+4))
+
   end do
-  do i = 3, n-1, 4
-   x(i) = 0.25*(2.0*x(i) + x(i-1)+x(i+1))
-  end do
+  !write(*,'(17f7.4)') x(1:n-1) 
+  !do i = 5, n-1, 4
+  ! !x(i) = 0.25*(2.0*x(i) + x(i-1)+x(i+1))
+  ! x(i) = 0.5*( x(i-1)+x(i+1))
+  !end do
+  !write(*,*) 'average'
+  !write(*,'(17f7.4)') x(1:n-1) 
   
 
 end subroutine 
@@ -158,8 +305,8 @@ subroutine evp(ax,cx,bx,rinv,x,r)
     y(i+1) = (r(i) -ax(i)*y(i-1)-cx(i)*y(i))/bx(i)
   end do
 
-  x(2) = x(2) + (y(n)-x(n))/rinv
-  do i = 2, n-1
+  x(2) = x(2) + (y(n)-x(n))*rinv
+  do i = 2, n-2
     x(i+1) = (r(i) -ax(i)*x(i-1)-cx(i)*x(i))/bx(i)
   end do
 end subroutine 
@@ -192,14 +339,9 @@ subroutine grid_num(lev, lgrid,tgrid,lowgrid)
                                              ! total grids from lev 1
                                              !to level lev
     
-  lgrid = 2*4**lev + 7
-  tgrid  = (8*(4**lev -1) +21*lev)/9
-  lowgrid = (2*4**(lev-1) + 7)/3
-
-  if (mod(lgrid, 3) .ne. 0) then 
-    print *, 'Error in grid number',lgrid
-  end if 
-  lgrid = lgrid/3
+  lgrid = 4**lev + 1
+  tgrid  = 4*(4**lev -1)/3 +lev
+  lowgrid = 4**(lev-1) + 1
 
   end subroutine 
 
