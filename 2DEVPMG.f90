@@ -82,7 +82,7 @@ program main
   ! traditional iteration 
   call grid_num(nlev,n,tn,ln)
   call grid_num(mlev,m,tm,lm)
-  call MG(ax,bx,cc,ay,by,rinv,u,f,nlev,n,tn,ln,m,tm,lm,tol)
+  call MG_x(ax,bx,cc,ay,by,rinv,u,f,nlev,n,tn,ln,m,tm,lm,tol)
   call analytic_check(u(1:n,1:m),ngrid,mgrid,choice)
 
 
@@ -315,24 +315,28 @@ subroutine calc_rhs(ax,cx,cc,ay,by,u,f,r,n,m,rr)
   do i = 2, n-1
   do j = 2, m-1
     r(i,j) = f(i,j) -ax(i,j)*u(i-1,j)-bx(i+1,j)*u(i,j)-cc(i)*u(i,j)-ay(i,j)*u(i,j-1)-by(i,j)*u(i,j+1)
-    rr = rr + abs(r(i)**2)
+    rr = rr + abs(r(i,j)**2)
   end do
-  rr = sqrt(rr/dble(n))
+  rr = sqrt(rr/dble(n*m))
 end subroutine 
 
-subroutine lev_pre(ax,cx,bx,rinv,n,ln)
+subroutine lev_pre(ax,cx,cc,ay,by,rinv,n,ln,m,lm)
   implicit none
-  integer*8,intent(in) :: n,ln! grid number of current and lower (coarser) levels
-  real*8,dimension(n),intent(in) :: ax,cx,bx
-  real*8,dimension(ln-1),intent(inout) :: rinv
+  integer*8,intent(in) :: n,ln,m,lm! grid number of current and lower (coarser) levels
+  real*8,dimension(n,m),intent(in) :: ax,cx,cc,ay,by
+  real*8,dimension(ln-1,lm-1),intent(inout) :: rinv
 
   !local 
-  integer*8 :: i,j
-  j = 0
+  integer*8 :: i,j,k,l
+  k = 0
+  l = 0
   do i = 1, n-1, 4
-    j = j+1
+    k = k+1
+  do j = 1, m-1, 4
+    l = l+1
     !write(*,*) 'j=',j,'i=',i,'i+4',i+4
-   call pre(ax(i:i+4), cx(i:i+4),bx(i:i+4),rinv(j))
+   call pre(ax(i:i+4,j:j+4), bx(i:i+4,j:j+4),cc(i:i+4,j:j+4),ay(i:i+4,j:j+4),by(i:i+4,j:j+4),rinv(k,l))
+  end do
   end do
 
 end subroutine 
@@ -367,49 +371,87 @@ subroutine lev_evp(ax,cx,bx,rinv,x,r,n,ln)
 end subroutine 
 
 ! 5 points EVP 
-subroutine evp(ax,cx,bx,rinv,x,r)
+subroutine evp(ax,bx,cc,ay,by,rinv,x,r)
   implicit none
   integer,parameter :: n = 5
-  real*8,dimension(n),intent(in) :: ax,cx,bx
-  real*8,dimension(n),intent(in) :: r
-  real*8,dimension(n),intent(inout) :: x
+  integer,parameter :: m = 5
+  real*8,dimension(n,m),intent(in) :: ax,bx,cc,ay,by
+  real*8,dimension(n,m),intent(in) :: r
+  real*8,dimension(n,m),intent(inout) :: x
 
-  real*8, intent(in) :: rinv
+  real*8,dimension(n-2,n-2),intent(in) :: rinv
 
   !local 
-  integer :: i
-  real*8,dimension(n) :: y
+  integer :: i,j
+  real*8,dimension(n,m) :: y
 
-  y(:) = x(:) 
+  y(:,:) = x(:,:) 
+  do j = 2, m-1
   do i = 2, n-1
-    y(i+1) = (r(i) -ax(i)*y(i-1)-cx(i)*y(i))/bx(i)
+    y(i,j+1) = (r(i,j) -ax(i,j)*y(i-1,j)-bx(i,j)*y(i+1,j)-cc(i,j)*y(i,j)-ay(i,j)*y(i,j-1))/by(i,j)
+  end do
   end do
 
-  x(2) = x(2) + (y(n)-x(n))*rinv
-  do i = 2, n-2
-    x(i+1) = (r(i) -ax(i)*x(i-1)-cx(i)*x(i))/bx(i)
+  do i = 1, n-2
+  do j = 1, n-2
+  x(i,2) = x(i,2) + (y(i,m)-x(i,m))*rinv(j,i)
   end do
+  end do
+  do j = 2, m-1
+  do i = 2, n-1
+    x(i,j+1) = (r(i,j) -ax(i,j)*x(i-1,j)-bx(i,j)*x(i+1,j)-cc(i,j)*x(i,j)-ay(i,j)*x(i,j-1))/by(i,j)
+  end do
+  end do
+
 end subroutine 
 
 ! 5 points PRE
-subroutine pre(ax,cx,bx,rinv)
+subroutine pre(ax,cx,cc,ay,by,rinv)
   implicit none
   integer,parameter :: n = 5
-  real*8,dimension(n),intent(in) :: ax,cx,bx
+  integer,parameter :: m = 5
+  real*8,dimension(n,m),intent(in) :: ax,bx,cc,ay,by
 
-  real*8, intent(inout) :: rinv
+  real*8,dimenstion(n-2,n-2),intent(inout) :: rinv
 
   !local 
-  integer :: i
-  real*8,dimension(n) :: y
+  integer :: i,j,ii,info
+  real*8,dimension(n,m) :: y
+  real*8,dimension(n-2) :: work,ipiv
 
-  y(:) = 0.0
-  y(2) = 1.0
-  do i = 2, n-1
-    y(i+1) = ( -ax(i)*y(i-1)-cx(i)*y(i))/bx(i)
-  end do
+  y(:,:) = 0.0
+  do ii = 2, n-1
+    y(i,2) = 1.0
+    do j = 2, m-1
+      do i = 2, n-1
+        y(i,j+1) = ( -ax(i,j)*y(i-1,j)-bx(i,j)*y(i+1,j)-cc(i,j)*y(i,j)-ay(i,j)*y(i,j-1))/by(i,j)
+      end do
+    end do
+    rinv(ii-1,:) = -y(2:n-1,m)
+  end do 
+  call ZGETRF(n-2,n-2,rinv,n-2,IPIV,info)
+  if(info .eq. 0) then
+    write(*,*)"succeded"
+  else
+    write(*,*)"failed"
+  end if
 
-  rinv = -1.0/y(5)
+  call ZGETRI(n-2,rinv,n-2,IPIV,WORK,n-2,info)
+  if(info .eq. 0) then
+    write(*,*)"succeded"
+  else
+    write(*,*)"failed"
+  end if
+  
+  !! check pre rinv 
+  work(:) = 0.0
+  do j = 1,n-2
+    do i = 1,n-2
+      work(j) = work(j) + rinv(i,j)*y(i+1,m)
+    end do 
+  end do 
+  write(*,*) work(:)
+
 end subroutine 
 
 subroutine grid_num(lev, lgrid,tgrid,lowgrid)
