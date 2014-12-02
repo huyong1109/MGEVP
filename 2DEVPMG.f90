@@ -13,7 +13,7 @@ program main
   !integer, parameter :: tingrid = (8*(4**(nlev-1) -1) &     ! total inner grid 
   !    +21*(nlev-1))/9  +1-2*(nlev- 1)
   real*8  :: tol 
-  real*8,dimension(tngrid,tmgrid) :: r, f,x,xt
+  real*8,dimension(tngrid,tmgrid) :: r, f,u,ut
   real*8,dimension(tngrid,tmgrid) :: ax,bx,cc,ay,by
   real*8,dimension(tgrid -ngrid +2,tmgrid-mgrid+2,3,3) :: rinv
 
@@ -75,15 +75,15 @@ program main
   do i = 1, tmgrid
   do j = 1, tngrid
     r(i,j) = 0.0
-    x(i,j) = 0.0
-    xt(i,j) = 0.0
+    u(i,j) = 0.0
+    ut(i,j) = 0.0
   end do 
 
   ! traditional iteration 
   call grid_num(nlev,n,tn,ln)
   call grid_num(mlev,m,tm,lm)
-  call MG(ax,bx,cc,ay,by,rinv,x,f,nlev,n,tn,ln,m,tm,lm,tol)
-  call analytic_check(x(1:n,1:m),ngrid,mgrid,choice)
+  call MG(ax,bx,cc,ay,by,rinv,u,f,nlev,n,tn,ln,m,tm,lm,tol)
+  call analytic_check(u(1:n,1:m),ngrid,mgrid,choice)
 
 
 
@@ -111,8 +111,9 @@ implicit none
   case (1)
     do i = 2, n-1
       do j = 2, m-1
-
-        f(i,j) = -1.0
+        x = (i-1)*hm
+        y = (j-1)*hn
+        f(i,j) = -(x*(1.0-x)+y*(1.0-y))
       end do 
     end do 
   case (2)
@@ -132,25 +133,29 @@ implicit none
   !write(*,*) f(:)
   
 end subroutine
-subroutine analytic_check(x,n,choice)
-  integer*8,intent(in):: n
+subroutine analytic_check(u,n,choice)
+implicit none 
+  integer*8,intent(in):: n,m
   integer,intent(in):: choice
-  real*8, dimension(n), intent(in) :: x
+  real*8, dimension(n,m), intent(in) :: x
   
   ! local 
-  real*8 :: h,s,e,maxe
+  integer*8 :: i,j
+  real*8 :: hm,hn,x,y,e,maxe
   real*8,parameter :: pi = 4.*atan(1.) 
 
   
   maxe = 0.0
-  h = 1.0/dble(n-1)
+  hn = 1.0/dble(n-1)
+  hm = 1.0/dble(m-1)
   select case(choice)
   case (1)
   !=========== for u'' = -1=========
-    h = 1.0/dble(n-1)
     do i = 1, n
-      s = (i-1)*h
-      e = x(i) -0.5*s*(1.0-s)
+    do j = 1, m
+      x = (i-1)*hn
+      y = (j-1)*hm
+      e = u(i) -0.5*x*(1.0-x)*y*(1.0-y)
       maxe= max(abs(e),maxe) 
       !write(*,*) i, s, x(i), e
     end do 
@@ -158,10 +163,13 @@ subroutine analytic_check(x,n,choice)
   case(2)
   !=========== for u'' = -1=========
     do i = 1, n
-      s = (i-1)*h
-      e = x(i) -sin(2.0*pi*s)
+    do j = 1, m
+      x = (i-1)*hn
+      y = (j-1)*hm
+      e = u(i) -sin(2.0*pi*x)*sin(2.0*pi*y)
       maxe= max(abs(e),maxe) 
       !write(*,*) i, s, x(i), e
+    end do 
     end do 
   case default
     write(*,*) 'Unsupported initial case!'
@@ -171,7 +179,7 @@ subroutine analytic_check(x,n,choice)
 end subroutine
 
 
-recursive subroutine MG(ax,cx,bx,rinv,x,r,lev,n,tn,ln,tol)
+recursive subroutine MG_x(ax,bx,cc,ay,by,rinv,u,r,lev,n,tn,ln,tol)
   ! traditional iteration 
   integer*8, intent(in) :: lev
   integer*8, intent(in) :: n,tn,ln
@@ -236,48 +244,77 @@ recursive subroutine MG(ax,cx,bx,rinv,x,r,lev,n,tn,ln,tol)
   
   end subroutine
 
-subroutine coarse_rhs(r,n,ln)
+subroutine coarse_rhs_x(r,n,ln,m)
   implicit none
-  integer*8,intent(in) :: n,ln
-  real*8,dimension(n+ln),intent(inout) :: r
+  integer*8,intent(in) :: n,ln,m
+  real*8,dimension(n+ln,m),intent(inout) :: r
 
   !local 
   integer*8 :: i,j
   j = 2
   r(n+1:n+ln) = 0.0
   do i = 5, n-1, 4
-    r(n+j) = 0.25*r(i)
+    r(n+j,:) = 0.25*r(i,:)
     j = j+1
   end do
 end subroutine 
 
-subroutine finer_x(x,n,ln)
+subroutine coarse_rhs_y(r,n,m,lm)
   implicit none
-  integer*8,intent(in) :: n,ln
-  real*8,dimension(n+ln),intent(inout) :: x
+  integer*8,intent(in) :: n,lm,m
+  real*8,dimension(n,m+lm),intent(inout) :: r
+
+  !local 
+  integer*8 :: i,j
+  j = 2
+  r(:,m+1:m+ln) = 0.0
+  do i = 5, n-1, 4
+    r(:,m+j) = 0.25*r(i,:)
+    j = j+1
+  end do
+end subroutine 
+
+subroutine finer_x(u,n,ln,m)
+  implicit none
+  integer*8,intent(in) :: n,ln,m
+  real*8,dimension(n+ln,m),intent(inout) :: u
 
   !local 
   integer*8 :: i,j
   j = 2
   do i = 5, n-1, 4
-    x(i) = x(i) +x(n+j)
+    u(i,:) = u(i,:) +u(n+j,:)
+    j = j+1
+  end do
+end subroutine 
+subroutine finer_y(u,n,m,lm)
+  implicit none
+  integer*8,intent(in) :: n,lm,m
+  real*8,dimension(n,m+lm),intent(inout) :: u
+
+  !local 
+  integer*8 :: i,j
+  j = 2
+  do i = 5, m-1, 4
+    u(:,i) = u(:,i) +u(:,m+j)
     j = j+1
   end do
 end subroutine 
 
-subroutine calc_rhs(ax,cx,bx,x,f,r,n,rr)
+subroutine calc_rhs(ax,cx,cc,ay,by,u,f,r,n,m,rr)
   implicit none
   integer*8,intent(in) :: n
   real*8, intent(inout) :: rr
-  real*8,dimension(n),intent(in) :: ax,cx,bx
-  real*8,dimension(n),intent(in) :: x,f
-  real*8,dimension(n),intent(inout) :: r
+  real*8,dimension(n,m),intent(in) :: ax,cx,cc,ay,by
+  real*8,dimension(n,m),intent(in) :: u,f
+  real*8,dimension(n,m),intent(inout) :: r
 
   !local 
-  integer*8 :: i
+  integer*8 :: i,j
   rr = 0.0
   do i = 2, n-1
-    r(i) = f(i) -ax(i)*x(i-1)-cx(i)*x(i)-bx(i)*x(i+1)
+  do j = 2, m-1
+    r(i,j) = f(i,j) -ax(i,j)*u(i-1,j)-bx(i+1,j)*u(i,j)-cc(i)*u(i,j)-ay(i,j)*u(i,j-1)-by(i,j)*u(i,j+1)
     rr = rr + abs(r(i)**2)
   end do
   rr = sqrt(rr/dble(n))
