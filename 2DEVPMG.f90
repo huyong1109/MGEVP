@@ -3,9 +3,9 @@
 program main 
   implicit none
   real*8,parameter :: rtol = 1.0e-8
-  integer*8, parameter :: nlev = 2
+  integer*8, parameter :: nlev = 1
   integer*8, parameter :: mlev = 2
-  integer*8, parameter :: choice = 1
+  integer*8, parameter :: choice = 2
   integer*8, parameter :: ngrid = 4**nlev+1  ! grid num on finest level 
   integer*8, parameter :: mgrid = 4**mlev+1  ! grid num on finest level 
   integer*8, parameter :: tngrid = 4*(4**nlev -1)/3 +nlev ! total grids all level 
@@ -61,7 +61,7 @@ program main
       end do 
 
       write(*,'(A,I4.1,a,i11.1,a,i12.1,a,i10.1,a,i10.1)') 'mlev',j, '  m',m,'  tm',tm,'  axs', km, '  rinvs', hm
-      write(*,*) kn, kn1, km,km1,hn,ln,hm,lm
+      !write(*,*) kn, kn1, km,km1,hn,ln,hm,lm
       call lev_pre(ax(kn:kn1,km:km1),bx(kn:kn1,km:km1),cc(kn:kn1,km:km1),ay(kn:kn1,km:km1),by(kn:kn1,km:km1),rinv(hn:hn+ln-2,hm:hm+lm-2,:,:),n,ln,m,lm)
 
       !write(*,*) ax(j:j+n-1)
@@ -79,8 +79,8 @@ program main
 
 
   ! initalization 
-  do i = 1, tmgrid
-    do j = 1, tngrid
+  do i = 1, tngrid
+    do j = 1, tmgrid
       r(i,j) = 0.0
       u(i,j) = 0.0
       ut(i,j) = 0.0
@@ -90,7 +90,7 @@ program main
   ! traditional iteration 
   call grid_num(nlev,n,tn,ln)
   call grid_num(mlev,m,tm,lm)
-  call MG_x(ax,bx,cc,ay,by,rinv,u,f,nlev,n,tn,ln,mlev,m,tm,tol)
+  call MG_x(ax,bx,cc,ay,by,rinv,u,f,nlev,n,tn,ln,mlev,m,tm,lm,tol)
   call analytic_check(u(1:n,1:m),ngrid,mgrid,choice)
 
 
@@ -165,7 +165,7 @@ program main
         y = (j-1)*hm
         e = u(i,j) -0.5*x*(1.0-x)*y*(1.0-y)
         maxe= max(abs(e),maxe) 
-        !write(*,*) i, s, x(i), e
+        write(*,'(I4.1,I4.1,E13.5,E13.5)') i, j, u(i,j), e
       end do 
     end do 
 
@@ -177,7 +177,7 @@ program main
         y = (j-1)*hm
         e = u(i,j) -sin(2.0*pi*x)*sin(2.0*pi*y)
         maxe= max(abs(e),maxe) 
-        !write(*,*) i, s, x(i), e
+        write(*,'(I4.1,I4.1,E13.5,E13.5)') i, j, u(i,j), e
       end do 
     end do 
   case default
@@ -209,14 +209,14 @@ program main
   k =1
   !f(j:j+n-1) = r(j:j+n-1)
   !call calc_rhs(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),x(j:j+n-1),f(j:j+n-1),r(j:j+n-1),n,rr)
-
+  !write(*,*) 'in MG_x'
   ut(:,:) = 0.
   call lev_evp_x(ax(j:j+n-1,:),bx(j:j+n-1,:),cc(j:j+n-1,:),ay(j:j+n-1,:),by(j:j+n-1,:),rinv(k:k+ln-2,:,:,:),ut(j:j+n-1,:),r(j:j+n-1,:),n,ln,mlev,m,tm,lm,tol)
   f(j:j+n-1,:) = r(j:j+n-1,:)
   u(j:j+n-1,:) = u(j:j+n-1,:)+ut(j:j+n-1,:)
   call calc_rhs(ax(j:j+n-1,:),bx(j:j+n-1,:),cc(j:j+n-1,:),ay(j:j+n-1,:),by(j:j+n-1,:),ut(j:j+n-1,:),f(j:j+n-1,:),r(j:j+n-1,:),n,m,rr)
 
-  write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'LEV_x',nlev, 'rr= ', rr, 'tol= ',tol
+  write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'LEV_x_<',nlev, 'rr= ', rr, 'tol= ',tol
   !write(*,*) 'r'
   !write(*,'(17f7.4)') r(j:j+n-1) 
   !write(*,*) 'x'
@@ -225,9 +225,9 @@ program main
   if (nlev .ne. 1) then
     call grid_num(nlev-1,n1,tn1,ln1)
     j1 = j +n
-    j1n = j1 +tn1
+    j1n = j1 +tn1-1
     k1 = k +ln
-    k1n = k1 +tn1-n1+2
+    k1n = k1 +tn1-n1+1
     iter  = 0
     do while ((rr .gt. tol) .and. (iter < 2) )
       !do while (rr .gt. tol)
@@ -243,7 +243,7 @@ program main
       f(j:j+n-1,:) = r(j:j+n-1,:)
       u(j:j+n-1,:) = u(j:j+n-1,:)+ut(j:j+n-1,:)
       call calc_rhs(ax(j:j+n-1,:),bx(j:j+n-1,:),cc(j:j+n-1,:),ay(j:j+n-1,:),by(j:j+n-1,:),ut(j:j+n-1,:),f(j:j+n-1,:),r(j:j+n-1,:),n,m,rr)
-      write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'LEV_x',nlev, 'rr= ', rr, 'tol= ',tol
+      write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'LEV_x_>',nlev, 'rr= ', rr, 'tol= ',tol
       !write(*,*) 'r'
       !write(*,'(17f7.4)') r(j:j+n-1) 
       !write(*,*) 'x'
@@ -269,23 +269,28 @@ program main
   real*8,dimension(n,tm),intent(inout) :: r,u
   real*8,intent(in) :: tol
 
-  integer*8 :: i,j,k,j1,k1,j1n,k1n,m1,tm1,lm1
+  integer*8 :: i,j,k,j1,k1,jm1,j1n,k1n,m1,tm1,lm1
   integer :: iter
   real*8 :: rr
   real*8,dimension(n,tm) :: f,ut
 
+  !write(*,*) 'in MG_y'
   j=1
   k =1
   !f(j:j+n-1) = r(j:j+n-1)
   !call calc_rhs(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),x(j:j+n-1),f(j:j+n-1),r(j:j+n-1),n,rr)
 
   ut(:,:) = 0.
-  call lev_evp_y(ax(:,j:j+m-1),bx(:,j:j+m-1),cc(:,j:j+m-1),ay(:,j:j+m-1),by(:,j:j+m-1),rinv(k:k+lm-2,:,:),ut(:,j:j+m-1),r(:,j:j+m-1),m,lm)
-  f(:,j:j+m-1) = r(:,j:j+m-1)
-  u(:,j:j+m-1) = u(:,j:j+m-1)+ut(:,j:j+m-1)
-  call calc_rhs(ax(:,j:j+m-1),bx(:,j:j+m-1),cc(:,j:j+m-1),ay(:,j:j+m-1),by(:,j:j+m-1),rinv(k:k+lm-2,:,:),ut(:,j:j+m-1),f(:,j:j+m-1),r(:,j:j+m-1),m,rr)
+  !write(*,*) 'call lev_evp_y'
+  jm1 = j+m-1
+  !write(*,*) j, jm1, k,k+lm-2,m,lm
+  call lev_evp_y(ax(:,j:jm1),bx(:,j:jm1),cc(:,j:jm1),ay(:,j:jm1),by(:,j:jm1),rinv(k:k+lm-2,:,:),ut(:,j:jm1),r(:,j:jm1),m,lm)
+  f(:,j:jm1) = r(:,j:jm1)
+  u(:,j:jm1) = u(:,j:jm1)+ut(:,j:jm1)
 
-  write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'LEV_y',mlev, 'rr= ', rr, 'tol= ',tol
+  call calc_rhs(ax(:,j:jm1),bx(:,j:jm1),cc(:,j:jm1),ay(:,j:jm1),by(:,j:jm1),ut(:,j:jm1),f(:,j:jm1),r(:,j:jm1),n,m,rr)
+
+  write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'LEV_y_<',mlev, 'rr= ', rr, 'tol= ',tol
   !write(*,*) 'r'
   !write(*,'(17f7.4)') r(j:j+n-1) 
   !write(*,*) 'x'
@@ -294,25 +299,27 @@ program main
   if (mlev .ne. 1) then
     call grid_num(mlev-1,m1,tm1,lm1)
     j1 = j +m
-    j1n = j1 +tm1
+    j1n = j1 +tm1-1
     k1 = k +lm
-    k1n = k1 +tm1-m1+2
+    k1n = k1 +tm1-m1+1
     iter  = 0
     do while ((rr .gt. tol) .and. (iter < 2) )
       !do while (rr .gt. tol)
       iter = iter +1
       ! coarsing 
-      call coarse_rhs_y(r(:,j:j+m+lm-1), m,lm)
+      call coarse_rhs_y(r(:,j:j+m+lm-1), n,m,lm)
       ut(:,:) = 0.
       write(*,*) 'MGY ',mlev
+      !write(*,*) j1,j1n,k1,tm1,m1, k1n
+
       call MG_y(ax(:,j1:j1n),bx(:,j1:j1n),cc(:,j1:j1n),ay(:,j1:j1n),by(:,j1:j1n),rinv(k1:k1n,:,:),ut(:,j1:j1n),r(:,j1:j1n),mlev-1,m1,tm1,lm1,tol)
       ! relaxing
       call finer_y(ut(:,1:m+lm),m,lm) 
-      call lev_evp_y(ax(:,j:j+m-1),bx(:,j:j+m-1),cc(:,j:j+m-1),ay(:,j:j+m-1),by(:,j:j+m-1),rinv(k:k+lm-2,:,:),ut(:,j:j+m-1),r(:,j:j+m-1),m,lm)
-      f(:,j:j+m-1) = r(:,j:j+m-1)
-      u(:,j:j+m-1) = u(:,j:j+m-1)+ut(:,j:j+m-1)
-      call calc_rhs(ax(:,j:j+m-1),bx(:,j:j+m-1),cc(:,j:j+m-1),ay(:,j:j+m-1),by(:,j:j+m-1),rinv(k:k+lm-2,:,:),ut(:,j:j+m-1),f(:,j:j+m-1),r(:,j:j+m-1),m,rr)
-      write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'LEV_y',mlev, 'rr= ', rr, 'tol= ',tol
+      call lev_evp_y(ax(:,j:jm1),bx(:,j:jm1),cc(:,j:jm1),ay(:,j:jm1),by(:,j:jm1),rinv(k:k+lm-2,:,:),ut(:,j:jm1),r(:,j:jm1),m,lm)
+      f(:,j:jm1) = r(:,j:jm1)
+      u(:,j:jm1) = u(:,j:jm1)+ut(:,j:jm1)
+      call calc_rhs(ax(:,j:jm1),bx(:,j:jm1),cc(:,j:jm1),ay(:,j:jm1),by(:,j:jm1),ut(:,j:jm1),f(:,j:jm1),r(:,j:jm1),n,m,rr)
+      write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'LEV_y_>',mlev, 'rr= ', rr, 'tol= ',tol
       !write(*,*) 'r'
       !write(*,'(17f7.4)') r(j:j+n-1) 
       !write(*,*) 'x'
@@ -350,7 +357,7 @@ program main
   integer*8 :: i,j
   j = 2
   r(:,m+1:m+lm) = 0.0
-  do i = 5, n-1, 4
+  do i = 5, m-1, 4
     r(:,m+j) = 0.25*r(:,i)
     j = j+1
   end do
@@ -495,11 +502,14 @@ subroutine lev_evp_x(ax,bx,cc,ay,by,rinv,u,r,n,ln,mlev,m,tm,lm,tol)
 
   !local 
   integer*8 :: i,j
+
+  !write(*,*) 'in lev_evp_x'
   j = 0
   do i = 1, n-1, 4
     j = j+1
     !write(*,*) 'j=',j,'i=',i,'i+4',i+4
    call MG_y(ax(i:i+4,:), bx(i:i+4,:),cc(i:i+4,:),ay(i:i+4,:),by(i:i+4,:),rinv(j,:,:,:),u(i:i+4,:),r(i:i+4,:),mlev,m,tm,lm,tol)
+
 
   end do
   !write(*,'(17f7.4)') x(1:n-1) 
@@ -512,22 +522,24 @@ subroutine lev_evp_x(ax,bx,cc,ay,by,rinv,u,r,n,ln,mlev,m,tm,lm,tol)
 end subroutine 
 
 ! solve each block in one level
-subroutine lev_evp_y(ax,bx,cc,ay,by,rinv,x,r,m,lm)
+subroutine lev_evp_y(ax,bx,cc,ay,by,rinv,u,r,m,lm)
   implicit none
   integer*8,intent(in) :: m,lm
   integer, parameter :: n =5
   real*8,dimension(n,m),intent(in) :: ax,bx,cc,ay,by
   real*8,dimension(n,m),intent(in) :: r
   real*8,dimension(lm-1,n-2,n-2),intent(in) :: rinv
-  real*8,dimension(n,m),intent(inout) :: x
+  real*8,dimension(n,m),intent(inout) :: u
 
   !local 
   integer*8 :: i,j
+
+  !write(*,*) 'in lev_evp_y'
   j = 0
   do i = 1, n-1, 4
     j = j+1
     !write(*,*) 'j=',j,'i=',i,'i+4',i+4
-   call evp(ax(:,i:i+4), bx(:,i:i+4),cc(:,i:i+4),ay(:,i:i+4),by(:,i:i+4),rinv(j,:,:),x(:,i:i+4),r(:,i:i+4))
+   call evp(ax(:,i:i+4), bx(:,i:i+4),cc(:,i:i+4),ay(:,i:i+4),by(:,i:i+4),rinv(j,:,:),u(:,i:i+4),r(:,i:i+4))
 
   end do
   !write(*,'(17f7.4)') x(1:n-1) 
@@ -554,6 +566,7 @@ subroutine evp(ax,bx,cc,ay,by,rinv,x,r)
   integer :: i,j
   real*8,dimension(n,m) :: y
 
+  !write(*,*) 'in evp'
   y(:,:) = x(:,:) 
   do j = 2, m-1
   do i = 2, n-1
@@ -650,24 +663,14 @@ subroutine grid_num(lev, lgrid,tgrid,lowgrid)
   do k=1,n
     b(k)=1.0
     d(1) = b(1)
-    ! Step 3a: Solve
-    ! Ld=b using the
-    ! forward
-    ! substitution
+    ! Step 3a: Solve Ld=b using the forward substitution
     do i=2,n
       d(i)=b(i)
       do j=1,i-1
         d(i)=d(i)-L(i,j)*d(j)
       end do
     end do
-    ! Step
-    ! 3b:
-    ! Solve
-    ! Ux=d
-    ! using
-    ! the
-    ! back
-    ! substitution
+    ! Step 3b:Solve Ux=d using the back substitution
     x(n)=d(n)/U(n,n)
     do i = n-1,1,-1
       x(i) = d(i)
@@ -676,17 +679,7 @@ subroutine grid_num(lev, lgrid,tgrid,lowgrid)
       end do
       x(i) = x(i)/u(i,i)
     end do
-    ! Step
-    ! 3c:
-    ! fill
-    ! the
-    ! solutions
-    ! x(n)
-    ! into
-    ! column
-    ! k
-    ! of
-    ! C
+    ! Step  3c: fill the solutions  x(n) into column  k  of  C
     do  i=1,n
       c(i,k) = x(i)
     end do

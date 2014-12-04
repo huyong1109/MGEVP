@@ -2,7 +2,7 @@ program main
 implicit none
 
   integer :: i,j
-  real :: a(10)
+  real :: a(5,5)
 
   !do i = 1, 10 
   !  j = j+i
@@ -21,22 +21,26 @@ implicit none
   !end do 
 
   do i = 1 ,10
-    a(i)  = i
+  do j = 1 ,10
+    a(i,j)  = 1
+  end do 
   end do 
   write(*,*)'before', a
-  call testprint(a(3:4), 2)
+  call testprint(a(2:4,2:4), 3)
   write(*,*) 'after', a
 end 
 subroutine testprint(a, n)
 implicit none
 integer,intent(in) :: n 
-real,intent(inout) :: a(n)
+real,intent(inout) :: a(n,n)
 
 !local 
-integer :: i
+integer :: i,j
 do i = 1, n   
-  print*, a(i) 
-  a(i) = 111
+do j = 1, n   
+  print*, a(i,j) 
+  a(i,j) = 2
+end do 
 end do 
 
 end subroutine 
