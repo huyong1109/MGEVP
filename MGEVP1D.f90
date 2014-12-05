@@ -1,20 +1,28 @@
 ! 1D multigrid example from MUDPACK
 !   solve f''(t) = -1, f(0)=f(1)=0
-program main 
+module domain 
   implicit none
   real*8,parameter :: rtol = 1.0e-9
   integer*8, parameter :: nlev = 5
-  integer*8, parameter :: choice = 2
+  integer*8, parameter :: nb = 5  ! smallest block size 
+  integer*8, parameter :: grid_choice = 2
+  integer*8, parameter :: prob_choice = 2
   integer*8, parameter :: ngrid = 4**nlev+1  ! grid num on finest level 
   integer*8, parameter :: tgrid = 4*(4**nlev -1)/3 +nlev ! total grids all level 
-  real*8  :: tol 
+
   real*8,dimension(ngrid-1) :: dx
-  real*8,dimension(tgrid) :: r, f,x,xt
   real*8,dimension(tgrid) :: ax,cx,bx
   real*8,dimension(tgrid -ngrid +2) :: rinv
 
+end module domain 
 
-  ! local variable
+
+program main 
+  use domain
+  real*8  :: tol 
+  real*8,dimension(ngrid) :: r, f,x,xt
+
+
   real*8 :: s,tmp
   integer*8 :: i,j,k,n,tn,ln
   integer*8 :: ngrid2
@@ -23,27 +31,6 @@ program main
   print *, '1D Multigrid EVP solver'
 
   ! set problem 
-  j = 1
-  k =1
-  do i = nlev,1,-1
-    call grid_num(i,n,tn,ln)
-    ngrid2 = 2*(nlev-i)
-    ngrid2 = 4**ngrid2
-    tmp = 1.0/dble(ngrid2)
-    ax(j+1:j+n-2) = tmp
-    bx(j+1:j+n-2) = tmp
-    cx(j+1:j+n-2) = -2.0*tmp
-
-    write(*,'(A,I4.1,a,i11.1,a,i12.1,a,i10.1,a,i10.1)') 'lev',i, '  n',n,'  tn',tn,'  axs', j, '  rinvs', k
-    call lev_pre(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),rinv(k:k+ln-2),n,ln)
-
-    !write(*,*) ax(j:j+n-1)
-    !write(*,*) cx(j:j+n-1)
-    !write(*,*) bx(j:j+n-1)
-    !write(*,*) rinv(k:k+ln-1)
-    j = j+n 
-    k = k +ln
-  end do 
 
   call analytic_init(f,ngrid,choice)
 
@@ -64,32 +51,114 @@ program main
 
 end program
 
+subroutine init(choice)
+  use domain 
+  implicit none 
+  integer,intent(in):: choice
+  
+  ! local 
+  real*8 :: i,j,k
+    j = 1
+    k =1
+    call grid_init(dx,1.0,n-1,1)
+    do i = nlev,1,-1
+      call grid_num(i,n,tn,ln)
+      do ii = 1, n
+        do ii = 1, n
+        dx
+        tmp = 1.0/dble(ngrid2)
+        ax(j+1:j+n-2) = tmp
+        bx(j+1:j+n-2) = tmp
+        cx(j+1:j+n-2) = -2.0*tmp
+
+        write(*,'(A,I4.1,a,i11.1,a,i12.1,a,i10.1,a,i10.1)') 'lev',i, '  n',n,'  tn',tn,'  axs', j, '  rinvs', k
+        call lev_pre(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),rinv(k:k+ln-2),n,ln)
+
+        !write(*,*) ax(j:j+n-1)
+        !write(*,*) cx(j:j+n-1)
+        !write(*,*) bx(j:j+n-1)
+        !write(*,*) rinv(k:k+ln-1)
+        j = j+n 
+        k = k +ln
+      end do 
+  
+end subroutine
+
+
+subroutine grid_init(dx,lx, n,choice)
+  implicit none 
+  integer, intent(in) :: n,choice ! n is total grid point
+  real*8, intent(in) :: lx  ! length of x domain 
+  real*8, intent(inout),dimension(n-1) :: dx ! delta x 
+
+  !local variables
+  integer :: i
+  real*8 :: sumw
+  real*8,dimension(n-1) :: w
+
+  select case(choice) 
+  case (1) 
+    ! uniform grid 
+
+    do i = 1, n-1
+      dx(i) = lx/dble(n-1)
+    end do 
+  case (2) 
+    ! decay grids
+    sumw = 0.
+    do i = 1, n-1
+      w(i) = log(dble(1.0+i))
+      sumw = sumw +w(i)
+    end do 
+
+    do i = 1, n-1
+      dx(i) = lx*w(i)/sumw
+    end do 
+  case (2) 
+    ! vibrate grids
+    sumw = 0.
+    do i = 1, n-1
+      w(i) = 2.0+sin(dble(i))
+      sumw = sumw +w(i)
+    end do 
+
+    do i = 1, n-1
+      dx(i) = lx*w(i)/sumw
+    end do 
+  case default
+    write(*,*) 'Unsupported initial case!'
+  end select
+  end subroutine  
+
+subroutine  coarse_
+
+
+
+
+
+
 subroutine analytic_init(f,n,choice)
   integer*8,intent(in):: n
   integer,intent(in):: choice
   real*8, dimension(n), intent(inout) :: f
   
   ! local 
-  real*8 :: s,h,h2
+  real*8 :: s,h
   real*8,parameter :: pi = 4.*atan(1.) 
 
   ! input right side
   f(:) = 0.0
   h = 1.0/dble(n-1)
-  h2= h**2
 
   select case(choice)
   case (1)
     do i = 2, n-1
-      f(i) = -h2
+      f(i) = -1.0
     end do 
   case (2)
-
-  kn = 1
-  ln =1
     do i = 2, n-1
       s = (i-1)*h
-      f(i) = -1000000.0*pi**2*sin(1000.0*pi*s)*h2
+      f(i) = -4.0*pi**2*sin(2.0*pi*s)
     end do 
   case default
     write(*,*) 'Unsupported initial case!'
@@ -99,6 +168,8 @@ subroutine analytic_init(f,n,choice)
   !write(*,*) f(:)
   
 end subroutine
+
+
 subroutine analytic_check(x,n,choice)
   integer*8,intent(in):: n
   integer,intent(in):: choice
@@ -126,7 +197,7 @@ subroutine analytic_check(x,n,choice)
   !=========== for u'' = -1=========
     do i = 1, n
       s = (i-1)*h
-      e = x(i) -sin(1000.0*pi*s)
+      e = x(i) -sin(2.0*pi*s)
       maxe= max(abs(e),maxe) 
       !write(*,*) i, s, x(i), e
     end do 
@@ -200,10 +271,11 @@ recursive subroutine MG(ax,cx,bx,rinv,x,r,lev,n,tn,ln,tol)
   
   end subroutine
 
-subroutine coarse_rhs(r,n,ln)
+subroutine coarse_rhs(ax,cx,bx,r,lax,lcx,lbx,lr,n,ln)
   implicit none
   integer*8,intent(in) :: n,ln
-  real*8,dimension(n+ln),intent(inout) :: r
+  real*8,dimension(n),intent(in) ::ax,cx,bx, r
+  real*8,dimension(ln),intent(inout) ::lax,lcx,lbx, lr
 
   !local 
   integer*8 :: i,j
