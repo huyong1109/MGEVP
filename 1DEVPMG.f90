@@ -3,12 +3,11 @@
 program main 
   implicit none
   real*8,parameter :: rtol = 1.0e-9
-  integer*8, parameter :: nlev = 5
+  integer*8, parameter :: nlev = 3
   integer*8, parameter :: choice = 2
   integer*8, parameter :: ngrid = 4**nlev+1  ! grid num on finest level 
   integer*8, parameter :: tgrid = 4*(4**nlev -1)/3 +nlev ! total grids all level 
   real*8  :: tol 
-  real*8,dimension(ngrid-1) :: dx
   real*8,dimension(tgrid) :: r, f,x,xt
   real*8,dimension(tgrid) :: ax,cx,bx
   real*8,dimension(tgrid -ngrid +2) :: rinv
@@ -27,9 +26,9 @@ program main
   k =1
   do i = nlev,1,-1
     call grid_num(i,n,tn,ln)
-    ngrid2 = 2*(nlev-i)
+    ngrid2 = 2*(i)
     ngrid2 = 4**ngrid2
-    tmp = 1.0/dble(ngrid2)
+    tmp = dble(ngrid2)
     ax(j+1:j+n-2) = tmp
     bx(j+1:j+n-2) = tmp
     cx(j+1:j+n-2) = -2.0*tmp
@@ -58,6 +57,8 @@ program main
   ! traditional iteration 
   call grid_num(nlev,n,tn,ln)
   call MG(ax,cx,bx,rinv,x,f,nlev,n,tn,ln,tol)
+
+  !write(*,'(4f11.4)') x(:) 
   call analytic_check(x(1:n),ngrid,choice)
 
 
@@ -81,15 +82,19 @@ subroutine analytic_init(f,n,choice)
   select case(choice)
   case (1)
     do i = 2, n-1
-      f(i) = -h2
+      f(i) = -1.0
     end do 
   case (2)
-
+    do i = 2, n-1
+      s = (i-1)*h
+      f(i) = 2.0-6.0*s
+    end do 
+  case (3)
   kn = 1
   ln =1
     do i = 2, n-1
       s = (i-1)*h
-      f(i) = -1000000.0*pi**2*sin(1000.0*pi*s)*h2
+      f(i) = -4.0*pi**2*sin(2.0*pi*s)
     end do 
   case default
     write(*,*) 'Unsupported initial case!'
@@ -119,16 +124,26 @@ subroutine analytic_check(x,n,choice)
       s = (i-1)*h
       e = x(i) -0.5*s*(1.0-s)
       maxe= max(abs(e),maxe) 
-      !write(*,*) i, s, x(i), e
+      write(*,*) i, s, x(i), e
     end do 
 
   case(2)
   !=========== for u'' = -1=========
+    h = 1.0/dble(n-1)
     do i = 1, n
       s = (i-1)*h
-      e = x(i) -sin(1000.0*pi*s)
+      e = x(i) -s*s*(1.0-s)
       maxe= max(abs(e),maxe) 
-      !write(*,*) i, s, x(i), e
+      write(*,'(I6.2,3f11.4)') i, s, x(i), e
+    end do 
+
+  case(3)
+  !=========== for u'' = -1=========
+    do i = 1, n
+      s = (i-1)*h
+      e = x(i) -sin(2.0*pi*s)
+      maxe= max(abs(e),maxe) 
+      write(*,'(I6.2,3f11.4)') i, s, x(i), e
     end do 
   case default
     write(*,*) 'Unsupported initial case!'
@@ -157,10 +172,14 @@ recursive subroutine MG(ax,cx,bx,rinv,x,r,lev,n,tn,ln,tol)
   k =1
 
   xt(:) = 0.
+  write(*,*) 'r1'
+  write(*,'(4f11.2)') r(j:j+n-1) 
   call lev_evp(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),rinv(k:k+ln-2),xt(j:j+n-1),r(j:j+n-1),n,ln)
   f(j:j+n-1) = r(j:j+n-1)
   x(j:j+n-1) = x(j:j+n-1)+xt(j:j+n-1)
   call calc_rhs(ax(j:j+n-1),cx(j:j+n-1),bx(j:j+n-1),xt(j:j+n-1),f(j:j+n-1),r(j:j+n-1),n,rr)
+  write(*,*) 'r2'
+  write(*,'(4f11.2)') r(j:j+n-1) 
  
    write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'LEV',lev, 'rr= ', rr, 'tol= ',tol
   !write(*,*) 'r'
@@ -178,7 +197,9 @@ recursive subroutine MG(ax,cx,bx,rinv,x,r,lev,n,tn,ln,tol)
     !do while ((rr .gt. tol) .and. (iter < 5) )
       !iter = iter +1
       ! coarsing 
+  !write(*,'(17f7.2)') r(j:j+n-1) 
       call coarse_rhs(r(j:j+n+ln-1), n,ln)
+  !write(*,'(5f7.2)') r(j+n:j+n+ln-1) 
       xt(:) = 0.
       call MG(ax(j1:j1n),cx(j1:j1n),bx(j1:j1n),rinv(k1:k1n),xt(j1:j1n),r(j1:j1n),lev-1,n1,tn1,ln1,tol)
       ! relaxing
@@ -195,10 +216,7 @@ recursive subroutine MG(ax,cx,bx,rinv,x,r,lev,n,tn,ln,tol)
 
     !end do 
   end if 
-
- 
-  
-  end subroutine
+end subroutine
 
 subroutine coarse_rhs(r,n,ln)
   implicit none
@@ -338,9 +356,4 @@ subroutine grid_num(lev, lgrid,tgrid,lowgrid)
   tgrid  = 4*(4**lev -1)/3 +lev
   lowgrid = 4**(lev-1) + 1
 
-  end subroutine 
-
-
-
-
-
+end subroutine 

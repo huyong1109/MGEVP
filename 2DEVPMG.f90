@@ -2,17 +2,17 @@
 !   solve f''(t) = -1, f(0)=f(1)=0
 program main 
   implicit none
-  real*8,parameter :: rtol = 1.0e-8
+  real*8,parameter :: rtol = 1.0e-13
   integer, parameter :: nlev = 2
   integer, parameter :: mlev = 2
-  integer, parameter :: choice = 1
+  integer, parameter :: choice = 2
   integer, parameter :: ngrid = 4**nlev+1  ! grid num on finest level 
   integer, parameter :: mgrid = 4**mlev+1  ! grid num on finest level 
   integer, parameter :: tngrid = 4*(4**nlev -1)/3 +nlev ! total grids all level 
   integer, parameter :: tmgrid = 4*(4**mlev -1)/3 +mlev ! total grids all level 
   !integer, parameter :: tingrid = (8*(4**(nlev-1) -1) &     ! total inner grid 
   !    +21*(nlev-1))/9  +1-2*(nlev- 1)
-  real*8  :: tol 
+  real*8  :: tol ,rr
   real*8,dimension(ngrid,mgrid) :: r,f,u,ut
   real*8,dimension(tngrid,tmgrid) :: ax,bx,cc,ay,by
   real*8,dimension(tngrid -ngrid +2,tmgrid-mgrid+2,3,3) :: rinv
@@ -22,10 +22,10 @@ program main
 
   ! local variable
   real*8 :: s,ntmp,mtmp
-  integer :: i,j,ii,jj,kn,km,kn1,km1,hn,hm,n,tn,ln,m,tm,lm
+  integer :: i,j,ii,jj,kn,km,kn1,km1,hn,hm,n,tn,ln,m,tm,lm,iter
   integer :: ngrid2,mgrid2
 
-  tol = rtol/dble(ngrid)**2
+  tol = rtol/dble(ngrid)
   print *, '2D Multigrid EVP solver'
 
   ! set problem 
@@ -45,6 +45,7 @@ program main
     do j = mlev,1,-1
       call grid_num(j,m,tm,lm)
       mgrid2 = 2*j
+      !mgrid2 = 2*mlev
       mgrid2 = 4**mgrid2
       mtmp = dble(mgrid2)
      ! write(*,*) 'tmp', ntmp,mtmp
@@ -98,7 +99,20 @@ program main
   write(*,*) 'f'
   write(*,'(5f7.3)') f(:,:)
   !write(*,*) f(:,:)
-  call MG_x(ax,bx,cc,ay,by,rinv,u,f,nlev,n,tn,ln,mlev,m,tm,lm,tol)
+  rr = 1.0
+  iter = 1
+
+    ut(:,:) = 0.
+   call calc_rhs(ax(1:n,1:m),bx(1:n,1:m),cc(1:n,1:m),ay(1:n,1:m),by(1:n,1:m),ut,f,r,n,m,rr)
+  do while ((rr  > tol) .and. (iter <10))
+    ut(:,:) = 0.
+    call MG_x(ax,bx,cc,ay,by,rinv,ut,r,nlev,n,tn,ln,mlev,m,tm,lm,tol)
+    u(:,:) = u(:,:) + ut(:,:)
+    call calc_rhs(ax(1:n,1:m),bx(1:n,1:m),cc(1:n,1:m),ay(1:n,1:m),by(1:n,1:m),u,f,r,n,m,rr)
+
+    write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'MG_x',iter, 'rr= ', rr, 'tol= ',tol
+    iter =iter +1
+  end do 
   call analytic_check(u(1:n,1:m),ngrid,mgrid,choice)
 
 
@@ -118,11 +132,21 @@ program main
 
   ! input right side
   f(:,:) = 0.0
-  hn = 1.0/dble(n-1)
-  hm = 1.0/dble(m-1)
 
   select case(choice)
   case (1)
+  hn = 0.01/dble(n-1)
+  hm = 1.0/dble(m-1)
+    do i = 2, n-1
+        x = dble(i-1)*hn
+      do j = 2, m-1
+        y = dble(j-1)*hm
+        f(i,j) = -10000*(x*(0.01-x)+y*(1.0-y))
+      end do 
+    end do 
+  case (2)
+  hn = 1.0/dble(n-1)
+  hm = 1.0/dble(m-1)
     do i = 2, n-1
         x = dble(i-1)*hn
       do j = 2, m-1
@@ -130,7 +154,9 @@ program main
         f(i,j) = -(x*(1.0-x)+y*(1.0-y))
       end do 
     end do 
-  case (2)
+  case (3)
+  hn = 1.0/dble(n-1)
+  hm = 1.0/dble(m-1)
 
     do i = 2, n-1
         x = dble(i-1)*hn
@@ -158,11 +184,26 @@ program main
 
 
   maxe = 0.0
-  hn = 1.0/dble(n-1)
-  hm = 1.0/dble(m-1)
   select case(choice)
   case (1)
     !=========== for u'' = -1=========
+  hn = 0.01/dble(n-1)
+  hm = 1.0/dble(m-1)
+    do i = 1, n
+        x = dble(i-1)*hn
+      do j = 1, m
+        y = dble(j-1)*hm
+        tu = 10000*0.5*x*(0.01-x)*y*(1.0-y)
+        e = u(i,j) -tu
+        maxe= max(abs(e),maxe) 
+        write(*,'(I4.1,I4.1,E13.5,E13.5,E13.5)') i, j, u(i,j), tu, e
+      end do 
+    end do 
+
+  case (2)
+    !=========== for u'' = -1=========
+  hn = 1.0/dble(n-1)
+  hm = 1.0/dble(m-1)
     do i = 1, n
         x = dble(i-1)*hn
       do j = 1, m
@@ -174,8 +215,10 @@ program main
       end do 
     end do 
 
-  case (2)
+  case (3)
     !=========== for u'' = -1=========
+  hn = 1.0/dble(n-1)
+  hm = 1.0/dble(m-1)
     do i = 1, n
         x = dble(i-1)*hn
       do j = 1, m
@@ -237,11 +280,11 @@ program main
     k1 = k +ln
     k1n = k1 +tn1-n1+1
     iter  = 0
-    !do while ((rr .gt. tol) .and. (iter < 2) )
+    do while ((rr .gt. tol) .and. (iter < 1) )
       !do while (rr .gt. tol)
       iter = iter +1
       ! coarsing 
-      call coarse_rhs_x(f,lr,n,ln,m)
+      call coarse_rhs_x(rt,lr,n,ln,m)
      ! write(*,*) 'lr'
      ! write(*,'(5f8.3)') lr
       lut(:,:) = 0.
@@ -249,17 +292,17 @@ program main
       call MG_x(ax(j1:j1n,:),bx(j1:j1n,:),cc(j1:j1n,:),ay(j1:j1n,:),by(j1:j1n,:),rinv(k1:k1n,:,:,:),lut,lr,nlev-1,n1,tn1,ln1,mlev,m,tm,lm,tol)
       ! relaxing
       call finer_x(ut,lut,n,ln,m) 
-      call lev_evp_x(ax(j:jn1,:),bx(j:jn1,:),cc(j:jn1,:),ay(j:jn1,:),by(j:jn1,:),rinv(k:k+ln-1,:,:,:),ut,f,n,ln,mlev,m,tm,lm,tol)
+      call lev_evp_x(ax(j:jn1,:),bx(j:jn1,:),cc(j:jn1,:),ay(j:jn1,:),by(j:jn1,:),rinv(k:k+ln-1,:,:,:),ut,rt,n,ln,mlev,m,tm,lm,tol)
       u(:,:) = u(:,:)+ut(:,:)
-      f(:,:) = rt(:,:)
-      call calc_rhs(ax(j:jn1,1:m),bx(j:jn1,1:m),cc(j:jn1,1:m),ay(j:jn1,1:m),by(j:jn1,1:m),ut,f,rt,n,m,rr)
+      !f(:,:) = rt(:,:)
+      call calc_rhs(ax(j:jn1,1:m),bx(j:jn1,1:m),cc(j:jn1,1:m),ay(j:jn1,1:m),by(j:jn1,1:m),u,f,rt,n,m,rr)
       write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'LEV_x_>',nlev, 'rr= ', rr, 'tol= ',tol
       !write(*,*) 'r'
       !write(*,'(17f7.4)') r(j:j+n-1) 
       !write(*,*) 'x'
       !write(*,'(17f7.4)') x(j:j+n-1) 
 
-    !end do 
+    end do 
   end if 
 
   end subroutine
@@ -301,8 +344,8 @@ program main
   call calc_rhs(ax(:,j:jm1),bx(:,j:jm1),cc(:,j:jm1),ay(:,j:jm1),by(:,j:jm1),ut,f,rt,nn,m,rr)
   
 
-  !write(*,*) 'MGy f1 after lev_evp'
-  !write(*,'(5f11.5)') rt
+  write(*,*) 'MGy f1 after lev_evp'
+  write(*,'(5f11.5)') rt
   !write(*,*) 'MGy ut1'
   !write(*,'(5f11.5)') ut
   write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'LEV_y_<',mlev, 'rr= ', rr, 'tol= ',tol
@@ -315,39 +358,38 @@ program main
     k1 = k +lm
     k1n = k1 +tm1-m1+1
     iter  = 0
-    !do while ((rr .gt. tol) .and. (iter < 2) )
+    do while ((rr .gt. tol) .and. (iter < 1) )
       !do while (rr .gt. tol)
       iter = iter +1
       ! coarsing 
-      call coarse_rhs_y(f,lr,nn,m,lm)
+      call coarse_rhs_y(rt,lr,nn,m,lm)
       lut(:,:) = 0.
-      !write(*,*) 'MGY ',mlev
-      !write(*,*) 'lr'
-      !write(*,'(5f11.4)') lr
+      write(*,*) 'MGY ',mlev
+      write(*,*) 'lr'
+      write(*,'(5f11.4)') lr
 
       call MG_y(ax(:,j1:j1n),bx(:,j1:j1n),cc(:,j1:j1n),ay(:,j1:j1n),by(:,j1:j1n),rinv(k1:k1n,:,:),lut,lr,mlev-1,m1,tm1,lm1,tol)
       ! relaxing
-      write(*,*) 'lut'
-      write(*,'(5f7.4)') lut
+      !write(*,*) 'lut'
+      !write(*,'(5f7.4)') lut
+      ut(:,:) = 0.
       call finer_y(ut,lut,nn,m,lm) 
-      write(*,*) 'finer ut'
-      write(*,'(5f7.4)') ut
 
-      call lev_evp_y(ax(:,j:jm1),bx(:,j:jm1),cc(:,j:jm1),ay(:,j:jm1),by(:,j:jm1),rinv(k:k+lm-1,:,:),ut,f,m,lm)
+      call lev_evp_y(ax(:,j:jm1),bx(:,j:jm1),cc(:,j:jm1),ay(:,j:jm1),by(:,j:jm1),rinv(k:k+lm-1,:,:),ut,rt,m,lm)
 
       u(:,:) = u(:,:)+ut(:,:)
       write(*,*) 'u2'
       write(*,'(5f7.4)') u
-      f(:,:) = rt(:,:)
-      call calc_rhs(ax(:,j:jm1),bx(:,j:jm1),cc(:,j:jm1),ay(:,j:jm1),by(:,j:jm1),ut,f,rt,nn,m,rr)
+      !f(:,:) = rt(:,:)
+      call calc_rhs(ax(:,j:jm1),bx(:,j:jm1),cc(:,j:jm1),ay(:,j:jm1),by(:,j:jm1),u,f,rt,nn,m,rr)
 
       write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'LEV_y_>',mlev, 'rr= ', rr, 'tol= ',tol
-      !write(*,*) 'r'
-      !write(*,'(17f7.4)') r(j:j+n-1) 
+      write(*,*) 'r2'
+      write(*,'(5f7.4)') rt(:,:) 
       !write(*,*) 'x'
       !write(*,'(17f7.4)') x(j:j+n-1) 
 
-   ! end do 
+    end do 
   end if 
 
 
@@ -366,7 +408,7 @@ program main
   j = 2
   lr(:,:) = 0.0
   do i = 5, n-1, 4
-    lr(j,:) =r(i,:)
+    lr(j,:) =0.25*r(i,:)
     j = j+1
   end do
   end subroutine 
@@ -382,7 +424,7 @@ program main
   j = 2
   lr(:,:) = 0.0
   do i = 5, m-1, 4
-    lr(:,j) = r(:,i) !-ry(:,i) +0.25*(ry(:,i-1)+ry(:,i-1)+ry(:,i-2)+ry(:,i-3))
+    lr(:,j) = 0.25*r(:,i) !-ry(:,i) +0.25*(ry(:,i-1)+ry(:,i-1)+ry(:,i-2)+ry(:,i-3))
     j = j+1
   end do
   end subroutine 
@@ -397,7 +439,7 @@ program main
   integer :: i,j
   j = 2
   do i = 5, n-1, 4
-    u(i,:) = u(i,:) +lu(j,:)
+    u(i,:) = lu(j,:)
     j = j+1
   end do
   end subroutine 
@@ -413,7 +455,7 @@ program main
   j = 2
   do i = 5, m-1, 4
     do k = 2,n-1
-      u(k,i) = u(k,i) +lu(k,j)
+      u(k,i) = lu(k,j)
     end do
     j = j+1
   end do
@@ -441,7 +483,8 @@ program main
       rr = rr + abs(r(i,j)**2)
     end do
   end do
-  rr = sqrt(rr/dble(n*m))
+  !rr = sqrt(rr/dble(n*m))
+  rr = rr/dble(n*m)
   end subroutine 
 
 ! 5 points PRE
@@ -558,7 +601,8 @@ subroutine lev_evp_x(ax,bx,cc,ay,by,rinv,u,r,n,ln,mlev,m,tm,lm,tol)
   real*8,intent(in) :: tol
 
   !local 
-  integer :: i,j,i4
+  integer :: i,j,i4,iter
+  real*8 :: rr
 
   j = 0
   
@@ -566,6 +610,8 @@ subroutine lev_evp_x(ax,bx,cc,ay,by,rinv,u,r,n,ln,mlev,m,tm,lm,tol)
     j = j+1
     i4 = i+4
     !write(*,*) 'j=',j,'i=',i,'i+4',i+4
+
+  do while ((rr  > tol) .and. (iter <10))
    call MG_y(ax(i:i4,:), bx(i:i4,:),cc(i:i4,:),ay(i:i4,:),by(i:i4,:),rinv(j,:,:,:),u(i:i4,:),r(i:i4,:),mlev,m,tm,lm,tol)
   end do
 

@@ -10,7 +10,8 @@ module domain
   integer*8, parameter :: ngrid = 4**nlev+1  ! grid num on finest level 
   integer*8, parameter :: tgrid = 4*(4**nlev -1)/3 +nlev ! total grids all level 
 
-  real*8,dimension(ngrid-1) :: dx
+  real*8,dimension(ngrid) :: gx ! grid x 
+  real*8,dimension(ngrid-1) :: dx ! delta x
   real*8,dimension(tgrid) :: ax,cx,bx
   real*8,dimension(tgrid -ngrid +2) :: rinv
 
@@ -36,7 +37,7 @@ program main
 
   
   ! initalization 
-  do i = 1, tgrid
+  do i = 1, ngrid
     r(i) = 0.0
     x(i) = 0.0
     xt(i) = 0.0
@@ -58,14 +59,15 @@ subroutine init(choice)
   
   ! local 
   real*8 :: i,j,k
-    j = 1
-    k =1
-    call grid_init(dx,1.0,n-1,1)
-    do i = nlev,1,-1
-      call grid_num(i,n,tn,ln)
+  j = 1
+  k =1
+  call grid_init(gx,dx,1.0,n,1)
+    
+  ! set coefficient ax,cx,bx
+  do i = nlev,1,-1
+    call grid_num(i,n,tn,ln)
+    do ii = 1, n
       do ii = 1, n
-        do ii = 1, n
-        dx
         tmp = 1.0/dble(ngrid2)
         ax(j+1:j+n-2) = tmp
         bx(j+1:j+n-2) = tmp
@@ -130,12 +132,27 @@ subroutine grid_init(dx,lx, n,choice)
   end select
   end subroutine  
 
-subroutine  coarse_
+subroutine  coarse_grid(gx,n,lgx,ldx,ln)
+  implicit none 
+  integer, intent(in) :: n, ln
+  real*8, intent(in),dimension(n) :: gx
+  real*8, intent(in),dimension(ln) :: lgx
+  real*8, intent(in),dimension(ln-1) :: ldx
+  
+  !local 
+  integer :: i
+  
+  lgx(1) = gx(1) 
+  do i = 2,ln
+    lgx(i) = gx((i-1)*nb+1) 
+    ldx(i-1) = lgx(i) - lgx(i-1)
+  end do 
 
+  if (lgx(ln) .ne. gx(n) ) then 
+    write(*,*) 'Error in coarsing grid'
+  endif 
 
-
-
-
+end subroutine
 
 subroutine analytic_init(f,n,choice)
   integer*8,intent(in):: n
@@ -382,25 +399,23 @@ end subroutine
 ! 5 points PRE
 subroutine pre(ax,cx,bx,rinv)
   implicit none
-  integer,parameter :: n = 5
-  real*8,dimension(n),intent(in) :: ax,cx,bx
+  real*8,dimension(nb),intent(in) :: ax,cx,bx
 
   real*8, intent(inout) :: rinv
 
   !local 
   integer :: i
-  real*8,dimension(n) :: y
+  real*8,dimension(nb) :: y
 
   y(:) = 0.0
   y(2) = 1.0
-  do i = 2, n-1
-    y(i+1) = ( -ax(i)*y(i-1)-cx(i)*y(i))/bx(i)
+  do i = 2, nb-1
+    y(i+1) = (-ax(i)*y(i-1)-cx(i)*y(i))/bx(i)
   end do
-
-  rinv = -1.0/y(5)
+  rinv = -1.0/y(nb)
 end subroutine 
 
-subroutine grid_num(lev, lgrid,tgrid,lowgrid)
+subroutine grid_num(lev,lgrid,tgrid,lowgrid)
   implicit none
   integer*8,intent(in)  :: lev
   integer*8,intent(inout) :: lgrid,tgrid,lowgrid ! lev grid 
@@ -410,9 +425,4 @@ subroutine grid_num(lev, lgrid,tgrid,lowgrid)
   tgrid  = 4*(4**lev -1)/3 +lev
   lowgrid = 4**(lev-1) + 1
 
-  end subroutine 
-
-
-
-
-
+end subroutine 
