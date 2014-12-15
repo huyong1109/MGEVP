@@ -7,7 +7,7 @@ program main
   integer, parameter :: mb = 16 ! y direct
   integer, parameter :: nn = 4 ! block size 
   integer, parameter :: choice = 2
-  integer, parameter :: solver = 3
+  integer, parameter :: solver = 1
   integer, parameter :: n = nb*(nn-1)+1
   integer, parameter :: m = mb*(nn-1)+1
   !integer, parameter :: tingrid = (8*(4**(nlev-1) -1) &     ! total inner grid 
@@ -60,22 +60,23 @@ program main
   rr = 1.0
   iter = 0
   if (solver == 1) then 
-    do while ((rr  > tol) .and. (iter <8))
-      iter =iter +1
-      call lev_evp(ax,bx,cc,ay,by,rinv,u,f,n,nb,m,mb,nn)
-      call calc_rhs(ax(1:n,1:m),bx(1:n,1:m),cc(1:n,1:m),ay(1:n,1:m),by(1:n,1:m),u,f,r,n,m,rr)
-      write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'CG1 iter',iter, 'rr= ', rr, 'tol= ',tol
-      write(*,*) 'r'
-      write(*,'(17f7.3)') r(:,:)
+   ! do while ((rr  > tol) .and. (iter <8))
+   !   iter =iter +1
+   !   call lev_evp(ax,bx,cc,ay,by,rinv,u,f,n,nb,m,mb,nn)
+   !   call calc_rhs(ax(1:n,1:m),bx(1:n,1:m),cc(1:n,1:m),ay(1:n,1:m),by(1:n,1:m),u,f,r,n,m,rr)
+   !   write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'CG1 iter',iter, 'rr= ', rr, 'tol= ',tol
+   !   write(*,*) 'r'
+   !   write(*,'(17f7.3)') r(:,:)
 
-      !call pcg(ax,bx,cc,ay,by,u,f,n,m)
-      call evppcg(ax,bx,cc,ay,by,rinv,u,f,n,nb,m,mb,nn,tol)
-      call calc_rhs(ax(1:n,1:m),bx(1:n,1:m),cc(1:n,1:m),ay(1:n,1:m),by(1:n,1:m),u,f,r,n,m,rr)
-      write(*,*) 'r'
-      write(*,'(17f7.3)') r(:,:)
+   !   !call pcg(ax,bx,cc,ay,by,u,f,n,m)
+   !   call evppcg(ax,bx,cc,ay,by,rinv,u,f,n,nb,m,mb,nn,tol)
+   !   call calc_rhs(ax(1:n,1:m),bx(1:n,1:m),cc(1:n,1:m),ay(1:n,1:m),by(1:n,1:m),u,f,r,n,m,rr)
+   !   write(*,*) 'r'
+   !   write(*,'(17f7.3)') r(:,:)
 
-      write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'CG2 iter',iter, 'rr= ', rr, 'tol= ',tol
-    end do 
+   !   write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'CG2 iter',iter, 'rr= ', rr, 'tol= ',tol
+   ! end do 
+    call evppcg(ax,bx,cc,ay,by,rinv,u,f,n,nb,m,mb,nn,tol)
     write(*,*) 'evppcg end'
   else if (solver == 2 ) then
 
@@ -526,44 +527,44 @@ do while ((rr > tol) .and. (iter < 80))
 end do 
 end
 subroutine evppcg(ax,bx,cc,ay,by,rinv,u,f,n,nb,m,mb,nn,tol)
+  implicit none 
+  integer :: n,m,nb,mb,nn
+  real*8,dimension(n,m),intent(in) :: ax,bx,cc,ay,by,f
+  real*8,dimension(nb,mb,nn-2,nn-2),intent(in) :: rinv
+  real*8,dimension(n,m),intent(inout) :: u
+  real*8,intent(in) :: tol
+  ! local 
+  integer:: iter
+  real*8,dimension(n,m) :: p,ap,s,au,r,z
+  real*8 :: mu,nu,rho,alpha,rr
 
-implicit none 
-integer :: n,m,nb,mb,nn
-real*8,dimension(n,m),intent(in) :: ax,bx,cc,ay,by,f
-real*8,dimension(nb,mb,nn-2,nn-2),intent(in) :: rinv
-real*8,dimension(n,m),intent(inout) :: u
-real*8,intent(in) :: tol
-! local 
-integer:: iter
-real*8,dimension(n,m) :: p,ap,s,au,r,z
-real*8 :: mu,nu,rho,alpha,rr
-
-call matrixmultiple(ax,bx,cc,ay,by,u,au,n,m)
-r(:,:) = f(:,:) - au(:,:)
-z(:,:) = r(:,:) 
-call lev_evp(ax,bx,cc,ay,by,rinv,z,r,n,nb,m,mb,nn)
-p(:,:) = z(:,:) 
-call vectornorm(r,z,mu,n,m)
-iter = 0
-rr = 1.0
-do while ((rr > tol) .and. (iter < 80))
-  call matrixmultiple(ax,bx,cc,ay,by,p,ap,n,m)
-  write(*,*) ap
-  call vectornorm(p,ap,rho,n,m)
-  alpha = mu/rho
-  write(*,*) 'mu,rho,alpha',mu,rho,alpha
-  u(:,:) = u(:,:) + alpha*p(:,:)
-  r(:,:) = r(:,:) - alpha*ap(:,:)
-  z(:,:) = r(:,:)
-  call  vectornorm(r,r,rr,n,m)
+  call lev_evp(ax,bx,cc,ay,by,rinv,u,f,n,nb,m,mb,nn)
+  call matrixmultiple(ax,bx,cc,ay,by,u,au,n,m)
+  r(:,:) = f(:,:) - au(:,:)
+  z(:,:) = r(:,:) 
   call lev_evp(ax,bx,cc,ay,by,rinv,z,r,n,nb,m,mb,nn)
-  call  vectornorm(z,r,nu,n,m)
-  call  vectornorm(r,r,rr,n,m)
-  p(:,:) = z(:,:)+nu/mu*p(:,:)
-  iter = iter +1
-  mu = nu
-  write(*,*) 'CG ',iter,mu,rr,tol
-end do 
+  p(:,:) = z(:,:) 
+  call vectornorm(r,z,mu,n,m)
+  iter = 0
+  rr = 1.0
+  do while ((rr > tol) .and. (iter < 80))
+    call matrixmultiple(ax,bx,cc,ay,by,p,ap,n,m)
+    write(*,*) ap
+    call vectornorm(p,ap,rho,n,m)
+    alpha = mu/rho
+    write(*,*) 'mu,rho,alpha',mu,rho,alpha
+    u(:,:) = u(:,:) + alpha*p(:,:)
+    r(:,:) = r(:,:) - alpha*ap(:,:)
+    z(:,:) = r(:,:)
+    call  vectornorm(r,r,rr,n,m)
+    call lev_evp(ax,bx,cc,ay,by,rinv,z,r,n,nb,m,mb,nn)
+    call  vectornorm(z,r,nu,n,m)
+    call  vectornorm(r,r,rr,n,m)
+    p(:,:) = z(:,:)+nu/mu*p(:,:)
+    iter = iter +1
+    mu = nu
+    write(*,*) 'CG ',iter,mu,rr,tol
+  end do 
 end
 
 subroutine vectornorm(u,v,rr,n,m)

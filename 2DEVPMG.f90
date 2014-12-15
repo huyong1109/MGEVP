@@ -2,7 +2,7 @@
 !   solve f''(t) = -1, f(0)=f(1)=0
 program main 
   implicit none
-  real*8,parameter :: rtol = 1.0e-13
+  real*8,parameter :: rtol = 1.0e-5
   integer, parameter :: nlev = 2
   integer, parameter :: mlev = 2
   integer, parameter :: choice = 2
@@ -97,21 +97,27 @@ program main
   !write(*,*) 'u'
   !write(*,*) u
   write(*,*) 'f'
-  write(*,'(5f7.3)') f(:,:)
+  write(*,'(17f7.3)') f(:,:)
   !write(*,*) f(:,:)
   rr = 1.0
-  iter = 1
+  iter = 0
+  call calc_rhs(ax(1:n,1:m),bx(1:n,1:m),cc(1:n,1:m),ay(1:n,1:m),by(1:n,1:m),u,f,r,n,m,rr)
 
+    write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'MG_x iter',iter, 'rr= ', rr, 'tol= ',tol
+  do while ((rr  > tol) .and. (iter <2))
+    iter =iter +1
     ut(:,:) = 0.
-   call calc_rhs(ax(1:n,1:m),bx(1:n,1:m),cc(1:n,1:m),ay(1:n,1:m),by(1:n,1:m),ut,f,r,n,m,rr)
-  do while ((rr  > tol) .and. (iter <10))
-    ut(:,:) = 0.
+    write(*,*) 'xxr0'
+    write(*,'(17f7.3)') r
     call MG_x(ax,bx,cc,ay,by,rinv,ut,r,nlev,n,tn,ln,mlev,m,tm,lm,tol)
     u(:,:) = u(:,:) + ut(:,:)
     call calc_rhs(ax(1:n,1:m),bx(1:n,1:m),cc(1:n,1:m),ay(1:n,1:m),by(1:n,1:m),u,f,r,n,m,rr)
+    write(*,*) 'xu'
+    write(*,'(17f7.3)') u
+    write(*,*) 'xxr1'
+    write(*,'(17f7.3)') r
 
-    write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'MG_x',iter, 'rr= ', rr, 'tol= ',tol
-    iter =iter +1
+    write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'MG_x iter',iter, 'rr= ', rr, 'tol= ',tol
   end do 
   call analytic_check(u(1:n,1:m),ngrid,mgrid,choice)
 
@@ -260,13 +266,21 @@ program main
 
   ut(:,:) = u(:,:)
   jn1=j+n-1
+  write(*,*) 'mg xr0'
+  write(*,'(17f7.3)') r
 
   call lev_evp_x(ax(j:jn1,:),bx(j:jn1,:),cc(j:jn1,:),ay(j:jn1,:),by(j:jn1,:),rinv(k:k+ln-1,:,:,:),ut,r,n,ln,mlev,m,tm,lm,tol)
-
+  u(j+1:jn1-1,2:m-1) =u(j+1:jn1-1,2:m-1) +ut(j+1:jn1-1,2:m-1)
   f(:,:) = r(:,:)
-  u(:,:) = ut(:,:)
-  
+  rt(:,:) = 0.
+
   call calc_rhs(ax(j:jn1,1:m),bx(j:jn1,1:m),cc(j:jn1,1:m),ay(j:jn1,1:m),by(j:jn1,1:m),ut,f,rt,n,m,rr)
+  write(*,*) 'ut'
+  write(*,'(17f7.3)') ut
+  write(*,*) 'f'
+  write(*,'(17f7.3)') f
+  write(*,*) 'xr1'
+  write(*,'(17f7.3)') rt
 
   write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'LEV_x_<',nlev, 'rr= ', rr, 'tol= ',tol
 
@@ -284,16 +298,24 @@ program main
       !do while (rr .gt. tol)
       iter = iter +1
       ! coarsing 
+      write(*,*) 'xr'
+      write(*,'(17f7.3)') rt
       call coarse_rhs_x(rt,lr,n,ln,m)
-     ! write(*,*) 'lr'
-     ! write(*,'(5f8.3)') lr
+      write(*,*) 'xlr'
+      write(*,'(5f7.3)') lr
       lut(:,:) = 0.
-     write(*,*) 'MGX :',nlev
+      write(*,*) 'MGX :',nlev
       call MG_x(ax(j1:j1n,:),bx(j1:j1n,:),cc(j1:j1n,:),ay(j1:j1n,:),by(j1:j1n,:),rinv(k1:k1n,:,:,:),lut,lr,nlev-1,n1,tn1,ln1,mlev,m,tm,lm,tol)
       ! relaxing
+      ut(:,:) = 0.
       call finer_x(ut,lut,n,ln,m) 
+      write(*,*) 'utfiner'
+      write(*,'(17f7.3)') ut
       call lev_evp_x(ax(j:jn1,:),bx(j:jn1,:),cc(j:jn1,:),ay(j:jn1,:),by(j:jn1,:),rinv(k:k+ln-1,:,:,:),ut,rt,n,ln,mlev,m,tm,lm,tol)
+      !u(j+1:jn1-1,2:m-1) = u(j+1:jn1-1,2:m-1)+ut(j+1:jn1-1,2:m-1)
       u(:,:) = u(:,:)+ut(:,:)
+      write(*,*) 'utfiner2'
+      write(*,'(17f7.3)') ut
       !f(:,:) = rt(:,:)
       call calc_rhs(ax(j:jn1,1:m),bx(j:jn1,1:m),cc(j:jn1,1:m),ay(j:jn1,1:m),by(j:jn1,1:m),u,f,rt,n,m,rr)
       write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'LEV_x_>',nlev, 'rr= ', rr, 'tol= ',tol
@@ -332,16 +354,14 @@ program main
   j=1
   k =1
 
-  ut(:,:) = u(:,:)
   jm1 = j+m-1
 
   write(*,*) 'MGy f1 before lev_evp'
   write(*,'(5f11.5)') r
 
-  call lev_evp_y(ax(:,j:jm1),bx(:,j:jm1),cc(:,j:jm1),ay(:,j:jm1),by(:,j:jm1),rinv(k:k+lm-1,:,:),ut,r,m,lm)
-  u(:,:) = ut(:,:)
+  call lev_evp_y(ax(:,j:jm1),bx(:,j:jm1),cc(:,j:jm1),ay(:,j:jm1),by(:,j:jm1),rinv(k:k+lm-1,:,:),u,r,m,lm)
   f(:,:) = r(:,:)
-  call calc_rhs(ax(:,j:jm1),bx(:,j:jm1),cc(:,j:jm1),ay(:,j:jm1),by(:,j:jm1),ut,f,rt,nn,m,rr)
+  call calc_rhs(ax(:,j:jm1),bx(:,j:jm1),cc(:,j:jm1),ay(:,j:jm1),by(:,j:jm1),u,f,rt,nn,m,rr)
   
 
   write(*,*) 'MGy f1 after lev_evp'
@@ -365,7 +385,7 @@ program main
       call coarse_rhs_y(rt,lr,nn,m,lm)
       lut(:,:) = 0.
       write(*,*) 'MGY ',mlev
-      write(*,*) 'lr'
+      write(*,*) 'ylr'
       write(*,'(5f11.4)') lr
 
       call MG_y(ax(:,j1:j1n),bx(:,j1:j1n),cc(:,j1:j1n),ay(:,j1:j1n),by(:,j1:j1n),rinv(k1:k1n,:,:),lut,lr,mlev-1,m1,tm1,lm1,tol)
@@ -436,10 +456,12 @@ program main
   real*8,dimension(n,m),intent(inout) :: u
 
   !local 
-  integer :: i,j
+  integer :: i,j,k
   j = 2
   do i = 5, n-1, 4
-    u(i,:) = lu(j,:)
+    do k = 2,m-1
+      u(i,k) = lu(j,k)
+    end do 
     j = j+1
   end do
   end subroutine 
@@ -601,28 +623,33 @@ subroutine lev_evp_x(ax,bx,cc,ay,by,rinv,u,r,n,ln,mlev,m,tm,lm,tol)
   real*8,intent(in) :: tol
 
   !local 
+  real*8,dimension(n,m) :: f,ut
   integer :: i,j,i4,iter
   real*8 :: rr
 
   j = 0
-  
+ 
+  f(:,:) = r(:,:) 
+  rr = 1.0
   do i = 1, n-1, nn+1
     j = j+1
     i4 = i+4
     !write(*,*) 'j=',j,'i=',i,'i+4',i+4
+    iter = 0
+    call calc_rhs(ax(i:i4,1:m), bx(i:i4,1:m),cc(i:i4,1:m),ay(i:i4,1:m),by(i:i4,1:m),u(i:i4,:),f(i:i4,:),r(i:i4,:),nn+2,m,rr)
+    write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'MG_y iter',iter, 'rr= ', rr, 'tol= ',tol
 
-  do while ((rr  > tol) .and. (iter <10))
-   call MG_y(ax(i:i4,:), bx(i:i4,:),cc(i:i4,:),ay(i:i4,:),by(i:i4,:),rinv(j,:,:,:),u(i:i4,:),r(i:i4,:),mlev,m,tm,lm,tol)
+    do while ((rr  > tol) .and. (iter <2))
+      iter =iter +1
+      ut(i:i4,:) = u(i:i4,:)
+      call MG_y(ax(i:i4,:), bx(i:i4,:),cc(i:i4,:),ay(i:i4,:),by(i:i4,:),rinv(j,:,:,:),u(i:i4,:),r(i:i4,:),mlev,m,tm,lm,tol)
+      ut(i+1:i4-1,2:m-1) = u(i+1:i4-1,2:m-1)+ut(i+1:i4-1,2:m-1)
+      call calc_rhs(ax(i:i4,1:m), bx(i:i4,1:m),cc(i:i4,1:m),ay(i:i4,1:m),by(i:i4,1:m),u(i:i4,:),f(i:i4,:),r(i:i4,:),nn+2,m,rr)
+      write(*,'(A,I4.1,2X,A,e12.5,2X,A,e12.5)')  'MG_y iter',iter, 'rr= ', rr, 'tol= ',tol
+    end do
   end do
 
 
-  !write(*,'(17f7.4)') x(1:n-1) 
-  !do i = 5, n-1, 4
-  ! !x(i) = 0.25*(2.0*x(i) + x(i-1)+x(i+1))
-  ! x(i) = 0.5*( x(i-1)+x(i+1))
-  !end do
-  !write(*,*) 'average'
-  !write(*,'(17f7.4)') x(1:n-1) 
 end subroutine 
 
 ! solve each block in one level
@@ -714,7 +741,6 @@ end if
 
   write(*,*) 'after evp'
   write(*,'(5f11.4)') u
-
 
   call calc_rhs(ax,bx,cc,ay,by,u,r,y,n,m,rr)
   write(*,*) 'rr in evp  :', rr

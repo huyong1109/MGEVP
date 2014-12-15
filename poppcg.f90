@@ -5,8 +5,8 @@ program main
   real*16,parameter :: rtol = 1.0e-9
   integer, parameter :: n = 44
   integer, parameter :: m = 36
-  integer, parameter :: nn = 19
-  integer, parameter :: mm = 19
+  integer, parameter :: nn = 25
+  integer, parameter :: mm = 25
   integer, parameter :: miter = 100
   integer, parameter :: choice = 2
   integer, parameter :: solver = 1

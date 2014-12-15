@@ -5,8 +5,8 @@ program main
   real*16,parameter :: rtol = 1.0e-9
   integer, parameter :: n = 44
   integer, parameter :: m = 36
-  integer, parameter :: nn = 44
-  integer, parameter :: mm = 36
+  integer, parameter :: nn = 5
+  integer, parameter :: mm = 5
   integer, parameter :: miter = 100
   integer, parameter :: choice = 2
   integer, parameter :: solver = 1
@@ -139,6 +139,22 @@ program main
   !call diagpcg(tcc,tns,tew,tne,tu,tf,nn,mm,tol,miter)
   !call pcg(tcc,tns,tew,tne,tu,tf,nn,mm,tol,miter)
 
+  write(*,*) 'tu0'
+  write(*,'(5e18.5)') tu0(1:nn,1:mm)
+  write(*,*) 'tu'
+  write(*,'(5e18.5)') tu(1:nn,1:mm)
+  write(*,*) 'tu -tu0'
+  write(*,'(5e18.5)') tu(1:nn,1:mm) -tu0(1:nn,1:mm)
+  write(*,*) 'max(tu -tu0)'
+  write(*,'(e18.5)') maxval(abs(tu(1:nn,1:mm) -tu0(1:nn,1:mm)))
+
+  tu(:,:) = tu0
+  tu(2:nn-1,2:mm-1) = 0.
+  call testevp_diag(tcc,tns,tew,tne,tu,tf,nn,mm)
+  write(*,*) 'tu0'
+  write(*,'(5e18.5)') tu0(1:nn,1:mm)
+  write(*,*) 'tu'
+  write(*,'(5e18.5)') tu(1:nn,1:mm)
   write(*,*) 'tu -tu0'
   write(*,'(5e18.5)') tu(1:nn,1:mm) -tu0(1:nn,1:mm)
   write(*,*) 'max(tu -tu0)'
@@ -160,7 +176,6 @@ program main
 
   end program
 
-
   subroutine testevp(cc,ns,ew,ne,u,r,n,m)
   integer,intent(in) :: n,m
 
@@ -174,6 +189,50 @@ program main
   call exppre(cc,ns,ew,ne,rinv,n,m)
   write(*,*) 'evp'
   call expevp(cc,ns,ew,ne,rinv,u,r,n,m)
+
+
+  end subroutine
+
+  subroutine testevp_diag(cc,ns,ew,ne,u,r,n,m)
+  integer,intent(in) :: n,m
+
+  real*16,dimension(n,m),intent(in) :: cc,ns,ew,ne,r
+  real*16,dimension(n,m),intent(inout) :: u
+
+  real*16,dimension(n,m) :: dcc,dns,dew,dne,dse,tr
+  real*16,dimension(n+m-5,n+m-5) :: rinv
+
+  ! test diagprocondition
+  dcc(:,:) = cc(:,:)
+  dns(:,:) = ns(:,:)
+  dew(:,:) = ew(:,:)
+  dne(:,:) = ne(:,:)
+  dse(:,:) = 0.0
+  call diagprecond(dcc,dns,dew,dne,dse,n,m)
+
+  write(*,*) 'dcc'
+  write(*,'(5f15.5)') dcc
+  write(*,*) 'dns'
+  write(*,'(5f15.5)') dns
+  write(*,*) 'dew'
+  write(*,'(5f15.5)') dew
+  write(*,*) 'dne'
+  write(*,'(5f15.5)') dne
+  write(*,*) 'dse'
+  write(*,'(5f15.5)') dse
+
+  write(*,*) 'diag preconditioning'
+  call exppre_diag(dcc,dns,dew,dne,dse,rinv,n,m)
+  where(cc(:,:) /= 0.0 ) 
+    u(:,:) = u(:,:)/sqrt(-cc(:,:))
+    tr(:,:) = r(:,:)/sqrt(-cc(:,:))
+  end where
+  call expevp_diag(dcc,dns,dew,dne,dse,rinv,u,tr,n,m)
+  where(cc(:,:) /= 0.0 ) 
+    u(:,:) = u(:,:)*sqrt(-cc(:,:))
+  end where
+  
+
   end subroutine
 
   subroutine analytic_init(f,n,m,choice)
@@ -294,6 +353,27 @@ program main
   end subroutine
 
 
+  subroutine calc_rhs_diag(cc,ns,ew,ne,se,u,f,r,n,m,rr)
+  implicit none
+  integer,intent(in) :: n,m
+  real*16, intent(inout) :: rr
+  real*16,dimension(n,m),intent(in) :: cc,ns,ew,ne,se
+  real*16,dimension(n,m),intent(in) :: u,f
+  real*16,dimension(n,m),intent(inout) :: r
+
+  !local 
+  integer :: i,j
+  rr = 0.0
+  r(:,:) = 0.0
+  call matrixmultiple_diag(cc,ns,ew,se,ne,u,r,n,m)
+  write(*,*) r
+  r(:,:) = f(:,:) -r(:,:)
+  do i = 2, n-1
+    do j = 2, m-1
+     rr = rr + r(i,j)*r(i,j)
+    end do
+  end do
+  end subroutine 
 
   subroutine calc_rhs(cc,ns,ew,ne,u,f,r,n,m,rr)
   implicit none
@@ -378,6 +458,109 @@ subroutine pre(cc,ns,ew,ne,rinv,nn,mm)
   do j = 1,nn-2
     do i = 1,nn-2
       do k = 1,nn-2
+        rin(i,j) = rin(i,j) + rinv(i,k)*work(k,j)
+      end do 
+      if (i == j ) then 
+        if (abs(rin(i,j) -1.0) > 1.0e-5 ) then 
+          write(*,*) 'fail in pre',i,j,rin(i,j)-1.0
+        endif 
+      else
+        if (abs(rin(i,j) -0.0) > 1.0e-5 ) then 
+          write(*,*) 'fail in pre',i,j,rin(i,j)
+        endif 
+      endif 
+    end do 
+  end do 
+  !write(*,*) 'work'
+  !write(*,*) rin(:,:)
+
+end subroutine 
+subroutine exppre_diag(cc,ns,ew,ne,se,rinv,n,m)
+  implicit none
+  integer,intent(in) :: n,m
+  real*16,dimension(n,m),intent(in) :: cc,ns,ew,ne,se
+
+  real*16,dimension(n +m -5,n +m -5),intent(inout) :: rinv
+
+  !local 
+  integer :: i,j,k,ii,info
+  integer :: nm 
+  real*16,dimension(n,m) :: y
+  real*16,dimension(n +m -5,n +m -5) :: work,ipiv
+  real*16,dimension(n +m -5,n +m -5) :: rin
+  real*16,dimension(n +m -5) :: r
+
+  nm = n +m -5
+  y(:,:) = 0.0
+  ! left 
+  do ii = 1,m-2
+    y(2,m-ii) = 1.0
+    do j = 2, m-1
+      do i = 2, n-1
+        y(i+1,j+1)  = (- cc(i,j)     * y(i,j )     & 
+               -  ns(i,j)     * y(i,j+1)    &
+               -  ns(i,j-1)   * y(i,j-1)    &
+               -  ew(i,j)     * y(i+1,j)    &
+               -  ew(i-1,j)   * y(i-1,j)    &
+               -  se(i,j-1)   * y(i+1,j-1)  &
+               -  se(i-1,j)   * y(i-1,j+1)  & 
+               -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
+      end do
+    end do
+    ! get F error
+    
+    do i = 1,n-2
+      rinv(ii,i) = -y(i+2,m)
+    end do 
+
+    do j = 1,m-3
+      rinv(ii,n-2+j) = -y(n,m-j)
+    end do 
+
+    y(2,m-ii) = 0.0
+  end do 
+  ! buttom
+  do ii = 1,n-3
+    y(ii+2,2) = 1.0
+    do j = 2, m-1
+      do i = 2, n-1
+        y(i+1,j+1)  = (- cc(i,j)     * y(i,j )     & 
+               -  ns(i,j)     * y(i,j+1)    &
+               -  ns(i,j-1)   * y(i,j-1)    &
+               -  ew(i,j)     * y(i+1,j)    &
+               -  ew(i-1,j)   * y(i-1,j)    &
+               -  se(i,j-1)   * y(i+1,j-1)  &
+               -  se(i-1,j)   * y(i-1,j+1)  & 
+               -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
+      end do
+    end do
+    ! get F error
+    
+    do i = 1,n-2
+      rinv(m-2+ii,i) = -y(i+2,m)
+    end do 
+
+    do j = 1,m-3
+      rinv(m-2+ii,n-2+j) = -y(n,m-j)
+    end do 
+
+    y(ii+2,2) = 0.0
+  end do 
+
+  write(*,*) 'rin'
+  write(*,'(5e18.5)') rinv(:,:)
+  rin(:,:) = rinv(:,:)
+  work(:,:) = rinv(:,:)
+  call inverse(rin,rinv,nm)
+
+
+  !! check pre rinv 
+  write(*,*) 'rinv'
+  write(*,'(5f18.5)') rinv(:,:)
+  rin(:,:) = 0.0
+  do j = 1,nm
+    do i = 1,nm
+      do k = 1,nm
         rin(i,j) = rin(i,j) + rinv(i,k)*work(k,j)
       end do 
       if (i == j ) then 
@@ -498,6 +681,91 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
   !write(*,*) rin(:,:)
 
 end subroutine 
+subroutine expevp_diag(cc,ns,ew,ne,se,rinv,u,f,n,m)
+  implicit none
+  integer:: n,m
+  real*16,dimension(n,m),intent(in) :: cc,ns,ew,ne,se
+  real*16,dimension(n,m),intent(in) :: f
+  real*16,dimension(n,m),intent(inout) :: u
+
+  real*16,dimension(n+m-5,n+m-5),intent(in) :: rinv
+
+  !local 
+  integer :: i,j,k,nm
+  real*16,dimension(n,m) :: y,ry,ff
+  real*16,dimension(n+m-5) :: r
+  real*16 :: rr
+
+  nm = n+m-5
+  write(*,*) 'inital u'
+  write(*,'(5f18.5)')  u(:,:)
+
+
+  y(:,:) = u(:,:) 
+  y(2:n-1,2) = y(2:n-1,1)
+  y(2,3:m-1) = y(1,3:m-1)
+  do j = 2, m-1
+    do i = 2, n-1
+        y(i+1,j+1)  = (f(i,j)- cc(i,j)     * y(i,j )     & 
+               -  ns(i,j)     * y(i,j+1)    &
+               -  ns(i,j-1)   * y(i,j-1)    &
+               -  ew(i,j)     * y(i+1,j)    &
+               -  ew(i-1,j)   * y(i-1,j)    &
+               -  se(i,j-1)   * y(i+1,j-1)  &
+               -  se(i-1,j)   * y(i-1,j+1)  & 
+               -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
+    end do
+  end do
+  write(*,*) 'y(:,2)'
+  write(*,'(5f18.5)') y(:,:)
+
+  do i = 1,n-2
+    r(i) = y(i+2,m)-u(i+2,m)
+  end do 
+
+  do j = 1,m-3
+    r(n-2+j) = y(n,m-j) -u(n,m-j)
+  end do 
+
+  do j = 1,m-2
+      do k = 1,nm
+        y(2,m-j)  = y(2,m-j) + rinv(k,j)*r(k)
+      end do 
+  end do 
+  do i = 1,n-3
+      do k = 1,nm
+        y(i+2,2)  = y(i+2,2) + rinv(k,m-2+i)*r(k)
+      end do 
+  end do 
+
+  write(*,*) 'y(:,2)'
+  write(*,'(5f18.5)') y(:,:)
+
+  do j = 2, m-1
+    do i = 2, n-1
+        y(i+1,j+1)  = (f(i,j)- cc(i,j)     * y(i,j )     & 
+               -  ns(i,j)     * y(i,j+1)    &
+               -  ns(i,j-1)   * y(i,j-1)    &
+               -  ew(i,j)     * y(i+1,j)    &
+               -  ew(i-1,j)   * y(i-1,j)    &
+               -  se(i,j-1)   * y(i+1,j-1)  &
+               -  se(i-1,j)   * y(i-1,j+1)  & 
+               -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
+    end do
+  end do
+  u(2:n-1,2:m-1) = y(2:n-1,2:m-1) 
+  !
+  !u(:,:) = u(:,:)*cc(:,:)
+  write(*,*) 'final u'
+  write(*,'(5f18.5)')  u(:,:)
+  write(*,*) 'final f'
+  write(*,'(5f18.5)')  f(:,:)
+  y(:,:) = 0.
+  call calc_rhs_diag(cc,ns,ew,ne,se,u,f,y,n,m,rr)
+  write(*,*) 'rr in evp  :', rr
+  write(*,'(5e18.5)') y
+
+end subroutine 
 subroutine expevp(cc,ns,ew,ne,rinv,u,f,n,m)
   implicit none
   integer:: n,m
@@ -517,12 +785,6 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,f,n,m)
   write(*,*) 'inital u'
   write(*,'(5f18.5)')  u(:,:)
 
-  u(:,:) = u(:,:) !/cc(:,:)
-  ff(:,:) = f(:,:) !/cc(:,:)
-  write(*,*) 'inital u1'
-  write(*,'(5f18.5)')  u(:,:)
-  write(*,*) 'rinv'
-  write(*,'(5f18.5)')  rinv(:,:)
 
 
   y(:,:) = u(:,:) 
@@ -710,6 +972,29 @@ subroutine evp(cc,ns,ew,ne,rinv,u,f,n,m)
 
 end subroutine 
 
+subroutine matrixmultiple_diag(cc,ns,ew,ne,se,u,s,n,m)
+implicit none 
+integer :: n,m
+real*16,dimension(n,m),intent(in) :: cc,ns,ew,ne,se,u
+real*16,dimension(n,m),intent(inout) :: s
+
+! local 
+integer :: i,j
+s(:,:) = 0.
+do i = 2, n-1 
+  do j = 2, m-1
+    s(i,j) =  cc(i,j)     * u(i,j )     & 
+           +  ns(i,j)     * u(i,j+1)    &
+           +  ns(i,j-1)   * u(i,j-1)    &
+           +  ew(i,j)     * u(i+1,j)    &
+           +  ew(i-1,j)   * u(i-1,j)    &
+           +  ne(i,j)     * u(i+1,j+1)  &
+           +  se(i,j-1)   * u(i+1,j-1)  &
+           +  se(i-1,j)   * u(i-1,j+1)  & 
+           +  ne(i-1,j-1) * u(i-1,j-1) 
+  end do 
+end do 
+end subroutine 
 
 subroutine matrixmultiple(cc,ns,ew,ne,u,s,n,m)
 implicit none 
@@ -922,4 +1207,42 @@ implicit none
     end if 
   end do 
 end subroutine 
+subroutine diagprecond(cc,ns,ew,ne,se,n,m)
+implicit none 
+  integer, intent(in) :: n,m
+  real*16, dimension(n,m),intent(inout) :: cc,ns,ew,ne
+  real*16, dimension(n,m),intent(inout) :: se
+  
+  integer :: i,j
+  real*16 :: maxcc,maxns,maxew,maxne
 
+  maxcc  = maxval(-cc)
+  maxns  = maxval(-ns)
+  maxew  = maxval(-ew)
+  maxne  = maxval(-ne)
+  
+  where(cc(:,:) == 0.0) 
+    cc = maxcc
+  end where
+  where(ns(:,:) == 0.0) 
+    ns = maxns
+  end where
+  where(ew(:,:) == 0.0) 
+    ew = maxew
+  end where
+  where(cc(:,:) == 0.0) 
+    ne = maxne
+  end where
+  
+  se(:,:) = ne(:,:)
+  do i = 1,n-1
+    do j = 1,m-1
+      ns(i,j) = ns(i,j) /sqrt(cc(i,j) *cc(i,j+1))
+      ew(i,j) = ew(i,j) /sqrt(cc(i,j) *cc(i+1,j))
+      ne(i,j) = ne(i,j) /sqrt(cc(i,j) *cc(i+1,j+1))
+      se(i,j) = se(i,j) /sqrt(cc(i,j+1) *cc(i+1,j+1))
+    end do 
+  end do 
+  cc(:,:) = -1.0
+
+end subroutine
