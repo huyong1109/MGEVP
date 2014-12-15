@@ -2,17 +2,17 @@
 !   solve f''(t) = -1, f(0)=f(1)=0
 program main 
   implicit none
-  real*16,parameter :: rtol = 1.0e-9
+  real*16,parameter :: rtol = 1.0e-3
   integer, parameter :: n = 44
   integer, parameter :: m = 36
-  integer, parameter :: nn = 5
-  integer, parameter :: mm = 5
-  integer, parameter :: miter = 100
+  integer, parameter :: nn =9
+  integer, parameter :: mm =9
+  integer, parameter :: miter = 800
   integer, parameter :: choice = 2
   integer, parameter :: solver = 1
   character*2 :: grd  = '00'
   real*16  :: tol,rr,mtmp,ntmp
-  real*16,dimension(n,m) :: f,u0,u,r
+  real*16,dimension(n,m) :: f,u0,u,r,tu
   real*16,dimension(n,m) :: cc,ns,ew,ne
   real*8,dimension(n,m) :: fcc,fns,few,fne,ff,fu0
   integer :: nb, mb  ! blocks on x and y direction 
@@ -72,30 +72,29 @@ program main
   !!u0(9+nn,:) = 1.0 
   !!u0(:,10) = 1.0 
   !!u0(:,9+mm) = 1.0 
-  !u0(:,:) = -u0(:,:)/100000.
-  f(:,:) = 0.
-  call matrixmultiple(cc,ns,ew,ne,u0,f,n,m)
-  u(:,:) = u0
-  u(2:n-1,2:m-1) = 0.
-  !call calc_rhs(tcc,tns,tew,tne,tu0,tf,f,nn,mm,rr)
-  !write(*,*) 'rr =', rr
-  !call calc_rhs(tcc,tns,tew,tne,tu,tf,f,nn,mm,rr)
-  !write(*,*) 'rr =', rr
+  !!u0(:,:) = -u0(:,:)/100000.
+  !f(:,:) = 0.
+  !call matrixmultiple(cc,ns,ew,ne,u0,f,n,m)
+  !u(:,:) = u0
+  !u(2:n-1,2:m-1) = 0.
+  !!call calc_rhs(tcc,tns,tew,tne,tu0,tf,f,nn,mm,rr)
+  !!write(*,*) 'rr =', rr
+  !!call calc_rhs(tcc,tns,tew,tne,tu,tf,f,nn,mm,rr)
+  !!write(*,*) 'rr =', rr
   !=========================pop test case ====== 
   
   !=========================ideal test case ====== 
-  !cc(:,:) = 1
-  !ns(:,:) = -0.05
-  !ew(:,:) = -0.05
-  !ne(:,:) = -0.25
-  !!call analytic_init(tu0,nn,mm,2)
-  !u0 = 1.0
-  !f(:,:) = 0.
-  !call matrixmultiple(cc,ns,ew,ne,u0,f,n,m)
-  !write(*,*) 'f'
-  !write(*,'(5f18.5)') f
-  !u(:,:) = u0(1:n,1:m)
-  !u(2:n-1,2:m-1) = 0.
+  cc(:,:) = 1
+  ns(:,:) = -0.05
+  ew(:,:) = -0.05
+  ne(:,:) = -0.25
+  u0 = 1.0
+  f(:,:) = 0.
+  call matrixmultiple(cc,ns,ew,ne,u0,f,n,m)
+  write(*,*) 'f'
+  write(*,'(5f18.5)') f
+  u(:,:) = u0(1:n,1:m)
+  u(2:n-1,2:m-1) = 0.
   !write(*,*) 'inital u'
   !write(*,'(5e18.5)') u(1:n,1:m)
   !=========================ideal test case ====== 
@@ -103,7 +102,6 @@ program main
   !call testninevp(tcc,tns,tew,tne,tu,tf,nn,mm)
   !call testevp(tcc,tns,tew,tne,tu,tf,nn,mm)
 
-  
   write(*,*) 'tcc'
   write(*,'(5f15.5)') cc
   write(*,*) 'tns'
@@ -119,27 +117,27 @@ program main
   tol = rtol
 
   ! partition
-  nb = (n-2)/(nn-1) + 1
+  nb = (n-3)/(nn-1) + 1
   allocate(ndi(nb+1))
-  ndi(1) = 1 
+  ndi(1) = 2 
   if ( nb == 1 ) then 
     ndi(nb+1) = n
   else 
     do i = 1, nb-2
-      ndi(i+1) = 1+i*(nn-1)
+      ndi(i+1) = 2+i*(nn-1)
     end do 
     ndi(nb) = (ndi(nb-1) + n)/2 
     ndi(nb+1) = n
   end if 
 
-  mb = (m-2)/(mm-1) + 1
+  mb = (m-3)/(mm-1) + 1
   allocate(mdi(mb+1))
-  mdi(1) = 1 
+  mdi(1) = 2 
   if ( mb == 1 ) then 
-    mdi(mb+1) = n
+    mdi(mb+1) = m
   else 
     do i = 1, mb-2
-      mdi(i+1) = 1+i*(mm-1)
+      mdi(i+1) = 2+i*(mm-1)
     end do 
     mdi(mb) = (mdi(mb-1) +m )/2 
     mdi(mb+1) = m
@@ -149,10 +147,15 @@ program main
   write(*,*) ndi(:)
   write(*,*) 'bound index --y '
   write(*,*) mdi(:)
-
-  call evppcg(cc,ns,ew,ne,u,f,n,m,nn,mm,ndi,mdi,nb,mb,tol,miter)
-  !call diagpcg(cc,ns,ew,ne,u,f,n,m,tol,miter)
-  !call pcg(cc,ns,ew,ne,u,f,n,m,tol,miter)
+  
+   
+  tu(:,:) = u(:,:) 
+  call diagpcg(cc,ns,ew,ne,tu,f,n,m,tol,miter)
+  tu(:,:) = u(:,:) 
+  call evppcg(cc,ns,ew,ne,tu,f,n,m,nn,mm,ndi,mdi,nb,mb,tol,miter)
+  tu(:,:) = u(:,:) 
+  call pcg(cc,ns,ew,ne,tu,f,n,m,tol,miter)
+  !call testevp(cc,ns,ew,ne,u,f,n,m)
 
   write(*,*) 'tu0'
   write(*,'(5e18.5)') u0(1:n,1:m)
@@ -162,6 +165,21 @@ program main
 
 
   end program
+  subroutine testevp(cc,ns,ew,ne,u,r,n,m)
+  integer,intent(in) :: n,m
+
+  real*16,dimension(n,m),intent(in) :: cc,ns,ew,ne,r
+  real*16,dimension(n,m),intent(inout) :: u
+  real*16,dimension(n-2,m-2) :: tu
+
+  real*16,dimension(n+m-5,n+m-5) :: rinv
+  write(*,*) 'r'
+  write(*,'(5f18.5)') r
+  write(*,*) 'pre'
+  call exppre(cc,ns,ew,ne,rinv,n,m)
+  write(*,*) 'evp'
+  call expevp(cc,ns,ew,ne,rinv,u,tu,r,n,m)
+  end subroutine
 
   subroutine analytic_init(f,n,m,choice)
   implicit none
@@ -285,7 +303,7 @@ program main
   implicit none
   integer,intent(in) :: n,m  ! total block size
   real*16,dimension(n,m),intent(in) :: cc,ns,ew,ne
-  real*16,dimension(nb*mb,nn+mm-5,nn+mm-5),intent(inout):: rinv
+  real*16,dimension(nb*mb,nn+mm-3,nn+mm-3),intent(inout):: rinv
   integer,intent(in) :: nn,mm  ! small block ideal size
   integer,intent(in) :: nb, mb  ! blocks on x and y direction 
   integer,intent(in) :: ndi(nb+1),mdi(mb+1) ! bound index 
@@ -293,17 +311,17 @@ program main
   ! local 
   integer :: i,j,is,ie,js,je,ln,lm,l
   do i = 1, nb
-    is = ndi(i) 
-    ie = ndi(i+1) 
+    is = ndi(i)-1
+    ie = ndi(i+1)
+    ln = (ie-is) +1
     do j = 1, mb
-      js = mdi(j) 
+      js = mdi(j)-1
       je = mdi(j+1) 
-      ln = (ie-is) +1
       lm = (je-js) +1
       l  = ln + lm -5
       write(*,*) 'i : ', is, ie
       write(*,*) 'j : ', js, je
-      write(*,*) 'l : ', l
+      write(*,*) 'l : ', l,'nn+mm-3',nn+mm-3
       call exppre(cc(is:ie,js:je),ns(is:ie,js:je),ew(is:ie,js:je),ne(is:ie,js:je),rinv((i-1)*mb+j,1:l,1:l),ln,lm)
     end do 
   end do 
@@ -314,26 +332,40 @@ program main
   integer,intent(in) :: n,m  ! total block size
   real*16,dimension(n,m),intent(in) :: cc,ns,ew,ne,f
   real*16,dimension(n,m),intent(inout) :: u
-  real*16,dimension(nb*mb,nn+mm-5,nn+mm-5),intent(inout):: rinv
+  real*16,dimension(nb*mb,nn+mm-3,nn+mm-3),intent(inout):: rinv
   integer,intent(in) :: nn,mm  ! small block ideal size
   integer,intent(in) :: nb, mb  ! blocks on x and y direction 
   integer,intent(in) :: ndi(nb+1),mdi(mb+1) ! bound index 
 
   ! local 
   integer :: i,j,is,ie,js,je,ln,lm,l
+  real*16,dimension(n,m) :: tu
+ 
+  tu = 0.0 
   do i = 1, nb
-    is = ndi(i) 
+    is = ndi(i) -1
     ie = ndi(i+1) 
+    ln = (ie-is) +1
     do j = 1, mb
-      js = mdi(j) 
+      js = mdi(j) -1
       je = mdi(j+1) 
-      ln = (ie-is) +1
       lm = (je-js) +1
       l  = ln + lm -5
-      write(*,*) 'i : ', is, ie
-      write(*,*) 'j : ', js, je
-      write(*,*) 'l : ', l
-      call expevp(cc(is:ie,js:je),ns(is:ie,js:je),ew(is:ie,js:je),ne(is:ie,js:je),rinv((i-1)*mb+j,1:l,1:l),u(is:ie,js:je),f(is:ie,js:je),ln,lm)
+      write(*,*) 'i : ', is, ie,n
+      write(*,*) 'j : ', js, je,m
+      write(*,*) 'l : ', l,(i-1)*mb+j
+      call expevp(cc(is:ie,js:je),ns(is:ie,js:je),ew(is:ie,js:je),ne(is:ie,js:je),rinv((i-1)*mb+j,1:l,1:l),u(is:ie,js:je),tu(is+1:ie-1,js+1:je-1),f(is:ie,js:je),ln,lm)
+    end do 
+  end do 
+  do i = 1, nb
+    is = ndi(i) -1
+    ie = ndi(i+1) 
+    do j = 1, mb
+      js = mdi(j)-1 
+      je = mdi(j+1) 
+      write(*,*) 'is+1,ie-1,js+1,je-1'
+      write(*,*) is+1,ie-1,js+1,je-1
+      u(is+1:ie-1,js+1:je-1) = tu(is+1:ie-1,js+1:je-1)
     end do 
   end do 
 
@@ -442,12 +474,13 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
   !write(*,*) rin(:,:)
 
 end subroutine 
-subroutine expevp(cc,ns,ew,ne,rinv,u,f,n,m)
+subroutine expevp(cc,ns,ew,ne,rinv,u,tu,f,n,m)
   implicit none
   integer:: n,m
   real*16,dimension(n,m),intent(in) :: cc,ns,ew,ne
   real*16,dimension(n,m),intent(in) :: f
-  real*16,dimension(n,m),intent(inout) :: u
+  real*16,dimension(n,m),intent(in) :: u
+  real*16,dimension(n-2,m-2),intent(inout) :: tu
 
   real*16,dimension(n+m-5,n+m-5),intent(in) :: rinv
 
@@ -460,10 +493,12 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,f,n,m)
   nm = n+m-5
   write(*,*) 'inital u'
   write(*,'(5f18.5)')  u(:,:)
+  write(*,*) 'inital f'
+  write(*,'(5f18.5)')  f(:,:)
 
   y(:,:) = u(:,:) 
-  y(2:n-1,2) = y(2:n-1,1)
-  y(2,3:m-1) = y(1,3:m-1)
+  !y(2:n-1,2) = y(2:n-1,1)
+  !y(2,3:m-1) = y(1,3:m-1)
   do j = 2, m-1
     do i = 2, n-1
         y(i+1,j+1)  = (f(i,j)- cc(i,j)     * y(i,j )     & 
@@ -476,8 +511,8 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,f,n,m)
                -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
     end do
   end do
-  !write(*,*) 'y(:,2)'
-  !write(*,'(5f18.5)') y(:,:)
+  write(*,*) 'y(:,2)'
+  write(*,'(5f18.5)') y(:,:)
 
   do i = 1,n-2
     r(i) = y(i+2,m)-u(i+2,m)
@@ -487,6 +522,10 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,f,n,m)
     r(n-2+j) = y(n,m-j) -u(n,m-j)
   end do 
 
+  write(*,*) 'r'
+  write(*,'(5f18.5)') r(:)
+  write(*,*) 'rinv'
+  write(*,'(5f18.5)') rinv(:,:)
   do j = 1,m-2
       do k = 1,nm
         y(2,m-j)  = y(2,m-j) + rinv(k,j)*r(k)
@@ -498,11 +537,11 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,f,n,m)
       end do 
   end do 
 
-  !write(*,*) 'y(:,2)'
-  !write(*,'(5f18.5)') y(:,:)
+  write(*,*) 'y(:,2)'
+  write(*,'(5f18.5)') y(:,:)
 
-  do j = 2, m-1
-    do i = 2, n-1
+  do j = 2, m-2
+    do i = 2, n-2
         y(i+1,j+1)  = (f(i,j)- cc(i,j)     * y(i,j )     & 
                -  ns(i,j)     * y(i,j+1)    &
                -  ns(i,j-1)   * y(i,j-1)    &
@@ -513,15 +552,18 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,f,n,m)
                -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
     end do
   end do
-  u(2:n-1,2:m-1) = y(2:n-1,2:m-1) 
+  tu(1:n-2,1:m-2) = y(2:n-1,2:m-1) 
   !
   !u(:,:) = u(:,:)*cc(:,:)
   !write(*,*) 'final u'
   !write(*,'(5f18.5)')  u(:,:)
   !write(*,*) 'final f'
   !write(*,'(5f18.5)')  f(:,:)
-  y(:,:) = 0.
-  call calc_rhs(cc,ns,ew,ne,u,f,y,n,m,rr)
+  !y(:,:) = 0.
+  ry(:,:) = u(:,:)
+  ry(2:n-1,2:m-1) = tu
+  y(:,:) = 0.0
+  call calc_rhs(cc,ns,ew,ne,ry,f,y,n,m,rr)
   write(*,*) 'rr in evp  :', rr
   write(*,'(5e18.5)') y
 
@@ -542,8 +584,8 @@ end subroutine
   r(:,:) = 0.0
   call matrixmultiple(cc,ns,ew,ne,u,r,n,m)
   r(:,:) = f(:,:) -r(:,:)
-  write(*,*) 'r'
-  write(*,'(5e18.5)') r
+  !write(*,*) 'r'
+  !write(*,'(5e18.5)') r
   do i = 2, n-1
     do j = 2, m-1
      rr = rr + r(i,j)*r(i,j)
@@ -578,7 +620,7 @@ iter = 0
 write(*,'(A5,I5.3,3e15.5)') 'CG ',iter,mu,tol
 do while ((mu > tol) .and. (iter < miter))
   call matrixmultiple(cc,ns,ew,ne,p,ap,n,m)
-  write(*,*) ap
+  !write(*,*) ap
   call vectornorm(p,ap,rho,n,m)
   alpha = mu/rho
   if(rho ==0.)  exit
@@ -591,6 +633,7 @@ do while ((mu > tol) .and. (iter < miter))
   iter = iter +1
   write(*,'(A5,I5.3,3e15.5)') 'CG ',iter,mu,tol
 end do 
+  write(*,'(A15,I5.3)') 'CG ITER ',iter
 end
 subroutine evppcg(cc,ns,ew,ne,u,f,n,m,nn,mm,ndi,mdi,nb,mb,tol,miter)
 implicit none 
@@ -603,13 +646,15 @@ implicit none
   integer,intent(in):: miter
   real*16,intent(in) :: tol
   ! local 
-  real*16,dimension(nb*mb,nn+mm-5,nn+mm-5):: rinv
+  real*16,dimension(nb*mb,nn+mm-3,nn+mm-3):: rinv
   integer:: iter
   real*16,dimension(n,m) :: p,ap,s,au,r,z
   real*16 :: mu,nu,rho,alpha,rr
 
   call evppre(cc,ns,ew,ne,rinv,n,m,nn,mm,ndi,mdi,nb,mb)
-  call evpprecond(cc,ns,ew,ne,rinv,u,f,n,m,nn,mm,ndi,mdi,nb,mb)
+  !u(2:n-1,2:m-1) = 0.
+  
+  !call evpprecond(cc,ns,ew,ne,rinv,u,f,n,m,nn,mm,ndi,mdi,nb,mb)
   p(:,:) = 0.
   s(:,:) = 0.
   r(:,:) = 0.
@@ -618,28 +663,34 @@ implicit none
   ap(:,:) = 0.
   call matrixmultiple(cc,ns,ew,ne,u,au,n,m)
   r(:,:) = f(:,:) - au(:,:)
+  !z(:,:) = u(:,:)!/cc(:,:) 
+  !z(2:n-1,2:m-1) = 0.
+  z(:,:) = 0.0 !u(:,:)
+
   write(*,*) 'initial r '
   write(*,'(5e18.5)') r
-  !z(:,:) = r(:,:)/cc(:,:) 
-  z(:,:) = r(:,:)
   call evpprecond(cc,ns,ew,ne,rinv,z,r,n,m,nn,mm,ndi,mdi,nb,mb)
+  call matrixmultiple(cc,ns,ew,ne,z,au,n,m)
   write(*,*) 'initial z '
-  write(*,'(5e18.5)') z(:,:)-r(:,:)
+  write(*,'(5e18.5)') z(:,:)
+  write(*,*) 'initial az-r'
+  write(*,'(5e18.5)') au(:,:)-r(:,:)
   p(:,:) = z(:,:) 
   call vectornorm(r,z,mu,n,m)
   iter = 0
   call  vectornorm(r,r,rr,n,m)
-  write(*,'(A5,I5.3,3e15.5)') 'CG ',iter,mu,rr,tol
+  write(*,'(A15,I5.3,3e15.5)') 'EVPPCG ',iter,mu,rr,tol
   do while ((rr > tol) .and. (iter < miter))
     call matrixmultiple(cc,ns,ew,ne,p,ap,n,m)
-    write(*,*) ap
+    !write(*,*) ap
     call vectornorm(p,ap,rho,n,m)
     alpha = mu/rho
     write(*,*) 'mu,rho,alpha',mu,rho,alpha
     u(:,:) = u(:,:) + alpha*p(:,:)
     r(:,:) = r(:,:) - alpha*ap(:,:)
-    !z(:,:) = r(:,:)/cc(:,:)
-    z(:,:) = r(:,:)
+    !z(:,:) = u(:,:) !/cc(:,:)
+    !z(2:n-1,2:m-1) = 0.
+    z(:,:) = 0.0 !r(:,:)
     call evpprecond(cc,ns,ew,ne,rinv,z,r,n,m,nn,mm,ndi,mdi,nb,mb)
     call  vectornorm(r,r,rr,n,m)
     !call lev_evp(ax,bx,cc,ay,by,rinv,z,r,n,nb,m,mb,nn)
@@ -648,9 +699,10 @@ implicit none
     p(:,:) = z(:,:)+nu/mu*p(:,:)
     iter = iter +1
     mu = nu
-    write(*,'(A5,I5.3,3e15.5)') 'CG ',iter,mu,rr,tol
+    write(*,'(A15,I5.3,3e15.5)') 'EVPPCG ',iter,mu,rr,tol
   end do 
-  end
+  write(*,'(A15,I5.3)') 'EVPPCG ITER ',iter
+ end subroutine
 
 subroutine diagpcg(cc,ns,ew,ne,u,f,n,m,tol,miter)
 
@@ -678,10 +730,10 @@ implicit none
   call vectornorm(r,z,mu,n,m)
   iter = 0
   call  vectornorm(r,r,rr,n,m)
-  write(*,'(A5,I5.3,3e15.5)') 'CG ',iter,mu,rr,tol
+  write(*,'(A15,I5.3,3e15.5)') 'DIAGPCG ',iter,mu,rr,tol
   do while ((rr > tol) .and. (iter < miter))
     call matrixmultiple(cc,ns,ew,ne,p,ap,n,m)
-    write(*,*) ap
+    !write(*,*) ap
     call vectornorm(p,ap,rho,n,m)
     alpha = mu/rho
     write(*,*) 'mu,rho,alpha',mu,rho,alpha
@@ -695,9 +747,10 @@ implicit none
     p(:,:) = z(:,:)+nu/mu*p(:,:)
     iter = iter +1
     mu = nu
-    write(*,'(A5,I5.3,3e15.5)') 'CG ',iter,mu,rr,tol
+    write(*,'(A15,I5.3,3e15.5)') 'DIAGPCG ',iter,mu,rr,tol
   end do 
-  end
+  write(*,'(A15,I5.3)') 'DIAGPCG ITER ',iter
+  end subroutine
 
 subroutine vectornorm(u,v,rr,n,m)
 implicit none 
