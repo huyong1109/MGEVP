@@ -415,10 +415,11 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
   nm = n +m -5
   y(:,:) = 0.0
   ! left 
-  do ii = 1,m-2
+  do ii = 1,m-3
     y(2,m-ii) = 1.0
-    do j = 2, m-1
-      do i = 2, n-1
+    y(1,m-ii) = 1.0
+    do j = 2, m-2
+      do i = 2, n-2
         y(i+1,j+1)  = (- cc(i,j)     * y(i,j )     & 
                -  ns(i,j)     * y(i,j+1)    &
                -  ns(i,j-1)   * y(i,j-1)    &
@@ -430,20 +431,55 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
       end do
     end do
     ! get F error
-    
+     
     do i = 1,n-2
-      rinv(ii,i) = -y(i+2,m)
+      rinv(ii,i) = y(i+1,m)-y(i+1,m-1)
     end do 
 
-    do j = 1,m-3
-      rinv(ii,n-2+j) = -y(n,m-j)
+    do j = 2,m-2
+      rinv(ii,n-2+j-1) = y(n,m-j)-y(n-1,m-j)
     end do 
 
     y(2,m-ii) = 0.0
+    y(1,m-ii) = 0.0
+  end do 
+  ! corner
+  do ii = m-2,m-2
+    y(2,2) = 1.0
+    y(1,1) = 1.0
+    y(2,1) = 1.0
+    y(1,2) = 1.0
+    do j = 2, m-2
+      do i = 2, n-2
+        y(i+1,j+1)  = (- cc(i,j)     * y(i,j )     & 
+               -  ns(i,j)     * y(i,j+1)    &
+               -  ns(i,j-1)   * y(i,j-1)    &
+               -  ew(i,j)     * y(i+1,j)    &
+               -  ew(i-1,j)   * y(i-1,j)    &
+               -  ne(i,j-1)   * y(i+1,j-1)  &
+               -  ne(i-1,j)   * y(i-1,j+1)  & 
+               -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
+      end do
+    end do
+    ! get F error
+     
+    do i = 1,n-2
+      rinv(ii,i) = y(i+1,m)-y(i+1,m-1)
+    end do 
+
+    do j = 2,m-2
+      rinv(ii,n-2+j-1) = y(n,m-j)-y(n-1,m-j)
+    end do 
+
+    y(2,2) = 0.0
+    y(1,1) = 0.0
+    y(2,1) = 0.0
+    y(1,2) = 0.0
   end do 
   ! buttom
   do ii = 1,n-3
     y(ii+2,2) = 1.0
+    y(ii+2,1) = 1.0
     do j = 2, m-1
       do i = 2, n-1
         y(i+1,j+1)  = (- cc(i,j)     * y(i,j )     & 
@@ -459,14 +495,15 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
     ! get F error
     
     do i = 1,n-2
-      rinv(m-2+ii,i) = -y(i+2,m)
+      rinv(ii,i) = y(i+1,m)-y(i+1,m-1)
     end do 
 
-    do j = 1,m-3
-      rinv(m-2+ii,n-2+j) = -y(n,m-j)
+    do j = 2,m-2
+      rinv(ii,n-2+j-1) = y(n,m-j)-y(n-1,m-j)
     end do 
 
     y(ii+2,2) = 0.0
+    y(ii+2,1) = 0.0
   end do 
 
   write(*,*) 'rin'
@@ -524,7 +561,8 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,tu,f,n,m)
   write(*,'(5f18.5)')  f(:,:)
   y(:,:) = u(:,:) 
   y(2:n-1,2) = y(2:n-1,1)
-  y(2,3:m-1) = y(1,3:m-1)
+  y(2,2:m-1) = y(1,2:m-1)
+  y(1,1) = y(2,2)
   do j = 2, m-1
     do i = 2, n-1
         y(i+1,j+1)  = (f(i,j)- cc(i,j)     * y(i,j )     & 
@@ -541,11 +579,11 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,tu,f,n,m)
   write(*,'(5f18.5)') y(:,:)
 
   do i = 1,n-2
-    r(i) = y(i+2,m)-u(i+2,m)
+    r(i) = y(i+1,m)-y(i+1,m-1)
   end do 
 
-  do j = 1,m-3
-    r(n-2+j) = y(n,m-j) -u(n,m-j)
+  do j = 2,m-2
+    r(n-2+j-1) = y(n,m-j) -y(n-1,m-j)
   end do 
 
   write(*,*) 'r'
@@ -554,14 +592,17 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,tu,f,n,m)
   write(*,'(5f18.5)') rinv(:,:)
   do j = 1,m-2
       do k = 1,nm
-        y(2,m-j)  = y(2,m-j) + rinv(k,j)*r(k)
+        y(2,m-j)  = y(2,m-j) - rinv(k,j)*r(k)
       end do 
   end do 
   do i = 1,n-3
       do k = 1,nm
-        y(i+2,2)  = y(i+2,2) + rinv(k,m-2+i)*r(k)
+        y(i+2,2)  = y(i+2,2) - rinv(k,m-2+i)*r(k)
       end do 
   end do 
+  y(2:n-1,1) = y(2:n-1,2)
+  y(1,2:m-1) = y(2,2:m-1)
+  y(1,1) = y(2,2)
 
   write(*,*) 'y(:,2)'
   write(*,'(5f18.5)') y(:,:)
@@ -578,6 +619,9 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,tu,f,n,m)
                -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
     end do
   end do
+  y(2:n-1,m) = y(2:n-1,m-1)
+  y(n,2:m-1) = y(n-1,2:m-1)
+  y(n,m) = y(n-1,m-1)
   tu(1:n-2,1:m-2) = y(2:n-1,2:m-1) 
   !
   !u(:,:) = u(:,:)*cc(:,:)
@@ -586,8 +630,8 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,tu,f,n,m)
   !write(*,*) 'final f'
   !write(*,'(5f18.5)')  f(:,:)
   !y(:,:) = 0.
-  ry(:,:) = u(:,:)
-  ry(2:n-1,2:m-1) = tu
+  ry(:,:) = y(:,:)
+  !ry(2:n-1,2:m-1) = tu
   y(:,:) = 0.0
   call calc_rhs(cc,ns,ew,ne,ry,f,y,n,m,rr)
   write(*,*) 'rr in evp  :', rr
