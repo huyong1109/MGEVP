@@ -151,10 +151,10 @@ program main
 
    tu(:,:) = u(:,:) 
    call evppcg(cc,ns,ew,ne,tu,f,n,m,nn,mm,ndi,mdi,nb,mb,tol,miter)
-   tu(:,:) = u(:,:) 
-   call diagpcg(cc,ns,ew,ne,tu,f,n,m,tol,miter)
-   tu(:,:) = u(:,:) 
-   call pcg(cc,ns,ew,ne,tu,f,n,m,tol,miter)
+   !tu(:,:) = u(:,:) 
+   !call diagpcg(cc,ns,ew,ne,tu,f,n,m,tol,miter)
+   !tu(:,:) = u(:,:) 
+   !call pcg(cc,ns,ew,ne,tu,f,n,m,tol,miter)
    !call testevp(cc,ns,ew,ne,u,f,n,m)
 
    write(*,*) 'tu0'
@@ -435,8 +435,8 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
     do i = 2,n-1
       y(i,m) = y(i,m-1)
     end do 
-    do j = 1,m-2
-      y(n,m-j) = y(n-1,m-j)
+    do j = m-1,2
+      y(n,j) = y(n-1,j)
     end do 
       y(n,m) = y(n-1,m-1)
   
@@ -449,19 +449,19 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
                -  ew(i-1,j)   * y(i-1,j)    &
                -  ne(i,j-1)   * y(i+1,j-1)  &
                -  ne(i-1,j)   * y(i-1,j+1)  & 
-               -  ne(i-1,j-1) * y(i-1,j-1)  
+               -  ne(i-1,j-1) * y(i-1,j-1)  &
                -  ne(i,j)* y(i+1,j+1) 
     end do 
     i = n-1
     do j = m-2,2,-1
-      rinv(ii,n-2+j-1) =  - cc(i,j)     * y(i,j )     & 
+      rinv(ii,n-2+m-1-j) =  - cc(i,j)     * y(i,j )     & 
                -  ns(i,j)     * y(i,j+1)    &
                -  ns(i,j-1)   * y(i,j-1)    &
                -  ew(i,j)     * y(i+1,j)    &
                -  ew(i-1,j)   * y(i-1,j)    &
                -  ne(i,j-1)   * y(i+1,j-1)  &
                -  ne(i-1,j)   * y(i-1,j+1)  & 
-               -  ne(i-1,j-1) * y(i-1,j-1)  
+               -  ne(i-1,j-1) * y(i-1,j-1)  &
                -  ne(i,j)* y(i+1,j+1) 
     end do 
 
@@ -492,8 +492,8 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
     do i = 2,n-1
       y(i,m) = y(i,m-1)
     end do 
-    do j = 1,m-2
-      y(n,m-j) = y(n-1,m-j)
+    do j = 2,m-1
+      y(n,j) = y(n-1,j)
     end do 
       y(n,m) = y(n-1,m-1)
   
@@ -506,19 +506,19 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
                -  ew(i-1,j)   * y(i-1,j)    &
                -  ne(i,j-1)   * y(i+1,j-1)  &
                -  ne(i-1,j)   * y(i-1,j+1)  & 
-               -  ne(i-1,j-1) * y(i-1,j-1)  
+               -  ne(i-1,j-1) * y(i-1,j-1)  &
                -  ne(i,j)* y(i+1,j+1) 
     end do 
     i = n-1
-    do j = m-2,2,-1
-      rinv(ii,n-2+j-1) =  - cc(i,j)     * y(i,j )     & 
+    do j = 2,m-2
+      rinv(ii,n-2+m-1-j) =  - cc(i,j)     * y(i,j )     & 
                -  ns(i,j)     * y(i,j+1)    &
                -  ns(i,j-1)   * y(i,j-1)    &
                -  ew(i,j)     * y(i+1,j)    &
                -  ew(i-1,j)   * y(i-1,j)    &
                -  ne(i,j-1)   * y(i+1,j-1)  &
                -  ne(i-1,j)   * y(i-1,j+1)  & 
-               -  ne(i-1,j-1) * y(i-1,j-1)  
+               -  ne(i-1,j-1) * y(i-1,j-1)  &
                -  ne(i,j)* y(i+1,j+1) 
     end do 
     y(2,2) = 0.0
@@ -561,19 +561,19 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
                -  ew(i-1,j)   * y(i-1,j)    &
                -  ne(i,j-1)   * y(i+1,j-1)  &
                -  ne(i-1,j)   * y(i-1,j+1)  & 
-               -  ne(i-1,j-1) * y(i-1,j-1)  
+               -  ne(i-1,j-1) * y(i-1,j-1)  &
                -  ne(i,j)* y(i+1,j+1) 
     end do 
     i = n-1
     do j = m-2,2,-1
-      rinv(ii+m-2,n-2+j-1) =  - cc(i,j)     * y(i,j )     & 
+      rinv(ii+m-2,n-2+m-1-j) =  - cc(i,j)     * y(i,j )     & 
                -  ns(i,j)     * y(i,j+1)    &
                -  ns(i,j-1)   * y(i,j-1)    &
                -  ew(i,j)     * y(i+1,j)    &
                -  ew(i-1,j)   * y(i-1,j)    &
                -  ne(i,j-1)   * y(i+1,j-1)  &
                -  ne(i-1,j)   * y(i-1,j+1)  & 
-               -  ne(i-1,j-1) * y(i-1,j-1)  
+               -  ne(i-1,j-1) * y(i-1,j-1)  &
                -  ne(i,j)* y(i+1,j+1) 
     end do 
 
@@ -630,6 +630,10 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,tu,f,n,m)
   real*8 :: rr
  
   nm = n+m-5
+  u(:,:) = 1.0 
+  call matrixmultiple(cc,ns,ew,ne,u,f,n,m)
+  u(:,:) = 0.0 
+
   write(*,*) 'inital u'
   write(*,'(5f18.5)')  u(:,:)
   write(*,*) 'inital f'
@@ -638,8 +642,8 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,tu,f,n,m)
   y(2:n-1,2) = y(2:n-1,1)
   y(2,2:m-1) = y(1,2:m-1)
   y(1,1) = y(2,2)
-  do j = 2, m-1
-    do i = 2, n-1
+  do j = 2, m-2
+    do i = 2, n-2
         y(i+1,j+1)  = (f(i,j)- cc(i,j)     * y(i,j )     & 
                -  ns(i,j)     * y(i,j+1)    &
                -  ns(i,j-1)   * y(i,j-1)    &
@@ -663,26 +667,26 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,tu,f,n,m)
   
   j = m-1
   do i = 2,n-1
-    r(i-1) = - cc(i,j)     * y(i,j )     & 
+    r(i-1) = f(i,j) - cc(i,j)     * y(i,j )     & 
              -  ns(i,j)     * y(i,j+1)    &
              -  ns(i,j-1)   * y(i,j-1)    &
              -  ew(i,j)     * y(i+1,j)    &
              -  ew(i-1,j)   * y(i-1,j)    &
              -  ne(i,j-1)   * y(i+1,j-1)  &
              -  ne(i-1,j)   * y(i-1,j+1)  & 
-             -  ne(i-1,j-1) * y(i-1,j-1)  
+             -  ne(i-1,j-1) * y(i-1,j-1)  &
              -  ne(i,j)* y(i+1,j+1) 
   end do 
   i = n-1
   do j = m-2,2,-1
-    r(n-2+j-1) =  - cc(i,j)     * y(i,j )     & 
+    r(n-2+m-1-j) = f(i,j) - cc(i,j)     * y(i,j )     & 
              -  ns(i,j)     * y(i,j+1)    &
              -  ns(i,j-1)   * y(i,j-1)    &
              -  ew(i,j)     * y(i+1,j)    &
              -  ew(i-1,j)   * y(i-1,j)    &
              -  ne(i,j-1)   * y(i+1,j-1)  &
              -  ne(i-1,j)   * y(i-1,j+1)  & 
-             -  ne(i-1,j-1) * y(i-1,j-1)  
+             -  ne(i-1,j-1) * y(i-1,j-1)  &
              -  ne(i,j)* y(i+1,j+1) 
   end do 
 
