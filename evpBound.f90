@@ -417,36 +417,8 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
   ! left 
   do ii = 1,m-2
     y(2,m-ii) = 1.0
-    i = 2
-    j = 2
-    ! left-bottom corner 
-    y(i+1,j+1)  = -((cc(i,j)+ne(i-1,j-1)+ew(i-1,j)+ns(i,j-1))     * y(i,j )     & 
-               +  (ns(i,j)+ne(i-1,j))     * y(i,j+1)    &
-               +  (ew(i,j)+ne(i,j-1))     * y(i+1,j)    &
-                ) /ne(i,j) 
-    ! left boundary
-    i = 2
-    do j = 3, m-2
-      y(i+1,j+1)  = -( (cc(i,j)+ew(i-1,j))     * y(i,j )     & 
-      +  (ns(i,j)+ne(i-1,j))     * y(i,j+1)    &
-      +  (ns(i,j-1) +ne(i-1,j-1))  * y(i,j-1)    &
-      +  ew(i,j)     * y(i+1,j)    &
-      +  ne(i,j-1)   * y(i+1,j-1)  &
-      ) /ne(i,j) 
-    end do
-    ! bottom boundary
-    j = 2
-    do i = 3, n-2
-      y(i+1,j+1)  = -((cc(i,j)+ns(i,j-1))     * y(i,j )     & 
-      +  ns(i,j)                 * y(i,j+1)    &
-      +  (ew(i,j) +ne(i,j-1))     * y(i+1,j)    &
-      +  (ew(i-1,j)+ne(i-1,j-1)) * y(i-1,j)    &
-      +  ne(i-1,j)               * y(i-1,j+1)  & 
-      ) /ne(i,j) 
-    end do
-
-    do j = 3, m-2
-      do i = 3, n-2
+    do j = 2, m-1
+      do i = 2, n-1
         y(i+1,j+1)  = (- cc(i,j)     * y(i,j )     & 
                -  ns(i,j)     * y(i,j+1)    &
                -  ns(i,j-1)   * y(i,j-1)    &
@@ -457,81 +429,23 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
                -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
       end do
     end do
-    !!!!! get F error
-    ! left-top corner 
-    j = m-1
-    i = 2
-    rinv(ii,1)  = -((cc(i,j)+ns(i,j) +ew(i-1,j)+ne(i-1,j))     * y(i,j )     & 
-               +  (ns(i,j-1) +ne(i-1,j-1))  * y(i,j-1)    &
-               +  (ew(i,j)  +ne(i,j))   * y(i+1,j)    &
-               +  ne(i,j-1)   * y(i+1,j-1) )
-    ! top boundary
-    do i = 3, n-2
-      rinv(ii,i-1)  = -((cc(i,j)+ns(i,j))     * y(i,j )     & 
-               +  ns(i,j-1)   * y(i,j-1)    &
-               +  (ew(i,j)   +ne(i,j))      * y(i+1,j)    &
-               +  (ew(i-1,j) +ne(i-1,j))    * y(i-1,j)    &
-               +  ne(i,j-1)   * y(i+1,j-1)  &
-               +  ne(i-1,j-1) * y(i-1,j-1) )
-    end do
-    ! right-top corner
-    i = n-1
-    rinv(ii,n-2)  = -((cc(i,j)+ns(i,j) +ew(i,j) +ne(i,j))     * y(i,j )     & 
-               +  (ns(i,j-1) +ne(i,j-1))  * y(i,j-1)    &
-               +  (ew(i-1,j) +ne(i-1,j))   * y(i-1,j)    &
-               +   ne(i-1,j-1)  * y(i-1,j-1) )
+    ! get F error
     
-    ! right boundary
-    do j =  m-2,3,-1
-      rinv(ii,n-2+m-1-j)  = -( (cc(i,j)+ew(i,j))     * y(i,j )     & 
-               +  (ns(i,j)  +ne(i,j))      * y(i,j+1)    &
-               +  (ns(i,j-1)+ne(i,j-1))   * y(i,j-1)    &
-               +  ew(i-1,j)   * y(i-1,j)    &
-               +  ne(i-1,j)   * y(i-1,j+1)  & 
-               +  ne(i-1,j-1) * y(i-1,j-1) ) 
-    end do
-    ! right buttom corner 
-    j = 2
-    rinv(ii,n+m-5)  = -( (cc(i,j)+ ns(i,j-1)+ew(i,j)+ne(i,j-1))     * y(i,j )     & 
-      +   (ns(i,j) +ne(i,j))   * y(i,j+1)    &
-      +  (ew(i-1,j)+ne(i-1,j-1))   * y(i-1,j)    &
-      +  ne(i-1,j)   * y(i-1,j+1)  )
+    do i = 1,n-2
+      rinv(ii,i) = -y(i+2,m)
+    end do 
+
+    do j = 1,m-3
+      rinv(ii,n-2+j) = -y(n,m-j)
+    end do 
 
     y(2,m-ii) = 0.0
   end do 
   ! buttom
   do ii = 1,n-3
     y(ii+2,2) = 1.0
-    i = 2
-    j = 2
-    ! left-bottom corner 
-    y(i+1,j+1)  = -((cc(i,j)+ne(i-1,j-1)+ew(i-1,j)+ns(i,j-1))     * y(i,j )     & 
-               +  (ns(i,j)+ne(i-1,j))     * y(i,j+1)    &
-               +  (ew(i,j)+ne(i,j-1))     * y(i+1,j)    &
-                ) /ne(i,j) 
-    ! left boundary
-    i = 2
-    do j = 3, m-2
-      y(i+1,j+1)  = -( (cc(i,j)+ew(i-1,j))     * y(i,j )     & 
-      +  (ns(i,j)+ne(i-1,j))     * y(i,j+1)    &
-      +  (ns(i,j-1) +ne(i-1,j-1))  * y(i,j-1)    &
-      +  ew(i,j)     * y(i+1,j)    &
-      +  ne(i,j-1)   * y(i+1,j-1)  &
-      ) /ne(i,j) 
-    end do
-    ! bottom boundary
-    j = 2
-    do i = 3, n-2
-      y(i+1,j+1)  = -((cc(i,j)+ns(i,j-1))     * y(i,j )     & 
-      +  ns(i,j)                 * y(i,j+1)    &
-      +  (ew(i,j) +ne(i,j-1))     * y(i+1,j)    &
-      +  (ew(i-1,j)+ne(i-1,j-1)) * y(i-1,j)    &
-      +  ne(i-1,j)               * y(i-1,j+1)  & 
-      ) /ne(i,j) 
-    end do
-
-    do j = 3, m-2
-      do i = 3, n-2
+    do j = 2, m-1
+      do i = 2, n-1
         y(i+1,j+1)  = (- cc(i,j)     * y(i,j )     & 
                -  ns(i,j)     * y(i,j+1)    &
                -  ns(i,j-1)   * y(i,j-1)    &
@@ -542,53 +456,21 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
                -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
       end do
     end do
-    !!!!! get F error
-    ! left-top corner 
-    j = m-1
-    i = 2
-    rinv(m-2+ii,1)  = -((cc(i,j)+ns(i,j) +ew(i-1,j)+ne(i-1,j))     * y(i,j )     & 
-               +  (ns(i,j-1) +ne(i-1,j-1))  * y(i,j-1)    &
-               +  (ew(i,j)  +ne(i,j))   * y(i+1,j)    &
-               +  ne(i,j-1)   * y(i+1,j-1) )
-    ! top boundary
-    do i = 3, n-2
-      rinv(m-2+ii,i-1)  = -((cc(i,j)+ns(i,j))     * y(i,j )     & 
-               +  ns(i,j-1)   * y(i,j-1)    &
-               +  (ew(i,j)   +ne(i,j))      * y(i+1,j)    &
-               +  (ew(i-1,j) +ne(i-1,j))    * y(i-1,j)    &
-               +  ne(i,j-1)   * y(i+1,j-1)  &
-               +  ne(i-1,j-1) * y(i-1,j-1) )
-    end do
-    ! right-top corner
-    i = n-1
-    j = m-1
-    rinv(m-2+ii,n-2)  = -((cc(i,j)+ns(i,j) +ew(i,j) +ne(i,j))     * y(i,j )     & 
-               +  (ns(i,j-1) +ne(i,j-1))  * y(i,j-1)    &
-               +  (ew(i-1,j) +ne(i-1,j))   * y(i-1,j)    &
-               +   ne(i-1,j-1)  * y(i-1,j-1) )
+    ! get F error
     
-    ! right boundary
-    do j =  m-2,3,-1
-      rinv(m-2+ii,n-2+m-1-j)  = -( (cc(i,j)+ew(i,j))     * y(i,j )     & 
-               +  (ns(i,j)  +ne(i,j))      * y(i,j+1)    &
-               +  (ns(i,j-1)+ne(i,j-1))   * y(i,j-1)    &
-               +  ew(i-1,j)   * y(i-1,j)    &
-               +  ne(i-1,j)   * y(i-1,j+1)  & 
-               +  ne(i-1,j-1) * y(i-1,j-1) ) 
-    end do
-    ! right buttom corner 
-    i = n-1
-    j = 2
-    rinv(m-2+ii,n+m-5)  = -( (cc(i,j)+ ns(i,j-1)+ew(i,j)+ne(i,j-1))     * y(i,j )     & 
-      +   (ns(i,j) +ne(i,j))   * y(i,j+1)    &
-      +  (ew(i-1,j)+ne(i-1,j-1))   * y(i-1,j)    &
-      +  ne(i-1,j)   * y(i-1,j+1)  )
+    do i = 1,n-2
+      rinv(m-2+ii,i) = -y(i+2,m)
+    end do 
+
+    do j = 1,m-3
+      rinv(m-2+ii,n-2+j) = -y(n,m-j)
+    end do 
 
     y(ii+2,2) = 0.0
   end do 
 
   write(*,*) 'rin'
-  write(*,'(5e18.7)') rinv(:,:)
+  write(*,'(5e18.5)') rinv(:,:)
   rin(:,:) = rinv(:,:)
   work(:,:) = rinv(:,:)
   call inverse(rin,rinv,nm)
@@ -596,7 +478,7 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
 
   !! check pre rinv 
   write(*,*) 'rinv'
-  write(*,'(5f18.7)') rinv(:,:)
+  write(*,'(5f18.5)') rinv(:,:)
   rin(:,:) = 0.0
   do j = 1,nm
     do i = 1,nm
@@ -604,11 +486,11 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
         rin(i,j) = rin(i,j) + rinv(i,k)*work(k,j)
       end do 
       if (i == j ) then 
-        if (abs(rin(i,j) -1.0) > 1.0e-16 ) then 
+        if (abs(rin(i,j) -1.0) > 1.0e-5 ) then 
           write(*,*) 'fail in pre',i,j,rin(i,j)-1.0
         endif 
       else
-        if (abs(rin(i,j) -0.0) > 1.0e-16 ) then 
+        if (abs(rin(i,j) -0.0) > 1.0e-5 ) then 
           write(*,*) 'fail in pre',i,j,rin(i,j)
         endif 
       endif 
@@ -635,195 +517,81 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,tu,f,n,m)
   real*8,dimension(n+m-5) :: r
   real*8 :: rr
  
- ! test evp 
-  u(:,:) = f(:,:)
-  u(2:n-1,1) = f(2:n-1,2)
-  u(2:n-1,m) = f(2:n-1,m-1)
-  u(1,2:m-1) = f(2,2:m-1)
-  u(n,2:m-1) = f(n-1,2:m-1)
-  u(1,1) = f(2,2)
-  u(1,m) = f(2,m-1)
-  u(n,1) = f(n-1,2)
-  u(n,m) = f(n-1,m-1)
-
-
-  write(*,*) 'inital u'
-  write(*,'(6f18.5)')  u(:,:)
-  call matrixmultiple(cc,ns,ew,ne,u,f,n,m)
-  u(:,:) = 0.0
-
   nm = n+m-5
+  write(*,*) 'inital u'
+  write(*,'(5f18.5)')  u(:,:)
   write(*,*) 'inital f'
   write(*,'(5f18.5)')  f(:,:)
-
   y(:,:) = u(:,:) 
   y(2:n-1,2) = y(2:n-1,1)
   y(2,3:m-1) = y(1,3:m-1)
-  i = 2
-  j = 2
-  ! left-bottom corner 
-  y(i+1,j+1)  = (f(i,j) -(cc(i,j)+ne(i-1,j-1)+ew(i-1,j)+ns(i,j-1))     * y(i,j )     & 
-             -  (ns(i,j)+ne(i-1,j))     * y(i,j+1)    &
-             -  (ew(i,j)+ne(i,j-1))     * y(i+1,j)    &
-              ) /ne(i,j) 
-  ! left boundary
-  do j = 3, m-2
-    y(i+1,j+1)  = (f(i,j)- (cc(i,j)+ew(i-1,j))     * y(i,j )     & 
-    -  (ns(i,j)   +ne(i-1,j))    * y(i,j+1)    &
-    -  (ns(i,j-1) +ne(i-1,j-1))  * y(i,j-1)    &
-    -  ew(i,j)     * y(i+1,j)    &
-    -  ne(i,j-1)   * y(i+1,j-1)  &
-    ) /ne(i,j) 
-  end do
-  ! bottom boundary
-  j = 2
-  do i = 3, n-2
-    y(i+1,j+1)  = (f(i,j) - (cc(i,j)+ns(i,j-1))     * y(i,j )     & 
-    -  ns(i,j)                 * y(i,j+1)    &
-    -  (ew(i,j) +ne(i,j-1))    * y(i+1,j)    &
-    -  (ew(i-1,j)+ne(i-1,j-1)) * y(i-1,j)    &
-    -  ne(i-1,j)               * y(i-1,j+1)  & 
-    ) /ne(i,j) 
-  end do
-
-  do j = 3, m-2
-    do i = 3, n-2
-      y(i+1,j+1)  = (f(i,j)- cc(i,j)     * y(i,j )     & 
-             -  ns(i,j)     * y(i,j+1)    &
-             -  ns(i,j-1)   * y(i,j-1)    &
-             -  ew(i,j)     * y(i+1,j)    &
-             -  ew(i-1,j)   * y(i-1,j)    &
-             -  ne(i,j-1)   * y(i+1,j-1)  &
-             -  ne(i-1,j)   * y(i-1,j+1)  & 
-             -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
+  do j = 2, m-1
+    do i = 2, n-1
+        y(i+1,j+1)  = (f(i,j)- cc(i,j)     * y(i,j )     & 
+               -  ns(i,j)     * y(i,j+1)    &
+               -  ns(i,j-1)   * y(i,j-1)    &
+               -  ew(i,j)     * y(i+1,j)    &
+               -  ew(i-1,j)   * y(i-1,j)    &
+               -  ne(i,j-1)   * y(i+1,j-1)  &
+               -  ne(i-1,j)   * y(i-1,j+1)  & 
+               -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
     end do
   end do
-  !!!!! get F error
-  ! left-top corner 
-  j = m-1
-  i = 2
-  r(1)  = f(i,j) -((cc(i,j)+ns(i,j) +ew(i-1,j)+ne(i-1,j))     * y(i,j )     & 
-             +  (ns(i,j-1) +ne(i-1,j-1))  * y(i,j-1)    &
-             +  (ew(i,j)  +ne(i,j))   * y(i+1,j)    &
-             +  ne(i,j-1)   * y(i+1,j-1) )
-  ! top boundary
-  do i = 3, n-2
-    r(i-1)  =f(i,j) -((cc(i,j)+ns(i,j))     * y(i,j )     & 
-             +  ns(i,j-1)   * y(i,j-1)    &
-             +  (ew(i,j)   +ne(i,j))      * y(i+1,j)    &
-             +  (ew(i-1,j) +ne(i-1,j))    * y(i-1,j)    &
-             +  ne(i,j-1)   * y(i+1,j-1)  &
-             +  ne(i-1,j-1) * y(i-1,j-1) )
-  end do
-  ! right-top corner
-  i = n-1
-  j = m-1
-  r(n-2)  =f(i,j) -((cc(i,j)+ns(i,j) +ew(i,j) +ne(i,j))     * y(i,j )     & 
-             +  (ns(i,j-1) +ne(i,j-1))  * y(i,j-1)    &
-             +  (ew(i-1,j) +ne(i-1,j))   * y(i-1,j)    &
-             +   ne(i-1,j-1)  * y(i-1,j-1) )
-  
-  ! right boundary
-  do j =  m-2,3,-1
-    r(n-2+m-1-j)  = f(i,j)-( (cc(i,j)+ew(i,j))     * y(i,j )     & 
-             +  (ns(i,j)  +ne(i,j))      * y(i,j+1)    &
-             +  (ns(i,j-1)+ne(i,j-1))    * y(i,j-1)    &
-             +  ew(i-1,j)   * y(i-1,j)    &
-             +  ne(i-1,j)   * y(i-1,j+1)  & 
-             +  ne(i-1,j-1) * y(i-1,j-1) ) 
-  end do
-  ! right buttom corner 
-  i = n-1
-  j = 2
-  r(n+m-5)  = f(i,j)-( (cc(i,j)+ ns(i,j-1)+ew(i,j)+ne(i,j-1))     * y(i,j )     & 
-      +   (ns(i,j) +ne(i,j))   * y(i,j+1)    &
-      +  (ew(i-1,j)+ne(i-1,j-1))   * y(i-1,j)    &
-      +  ne(i-1,j)   * y(i-1,j+1)  )
   write(*,*) 'y(:,2)'
   write(*,'(5f18.5)') y(:,:)
+
+  do i = 1,n-2
+    r(i) = y(i+2,m)-u(i+2,m)
+  end do 
+
+  do j = 1,m-3
+    r(n-2+j) = y(n,m-j) -u(n,m-j)
+  end do 
 
   write(*,*) 'r'
   write(*,'(5f18.5)') r(:)
   write(*,*) 'rinv'
   write(*,'(5f18.5)') rinv(:,:)
-
   do j = 1,m-2
       do k = 1,nm
-        y(2,m-j)  = y(2,m-j) - rinv(k,j)*r(k)
+        y(2,m-j)  = y(2,m-j) + rinv(k,j)*r(k)
       end do 
   end do 
   do i = 1,n-3
       do k = 1,nm
-        y(i+2,2)  = y(i+2,2) - rinv(k,m-2+i)*r(k)
+        y(i+2,2)  = y(i+2,2) + rinv(k,m-2+i)*r(k)
       end do 
   end do 
 
   write(*,*) 'y(:,2)'
   write(*,'(5f18.5)') y(:,:)
 
-  i = 2
-  j = 2
-  ! left-bottom corner 
-  y(i+1,j+1)  = (f(i,j) -(cc(i,j)+ne(i-1,j-1)+ew(i-1,j)+ns(i,j-1))     * y(i,j )     & 
-             -  (ns(i,j)+ne(i-1,j))     * y(i,j+1)    &
-             -  (ew(i,j)+ne(i,j-1))     * y(i+1,j)    &
-              ) /ne(i,j) 
-  ! left boundary
-  do j = 3, m-2
-    y(i+1,j+1)  = (f(i,j)- (cc(i,j)+ew(i-1,j))     * y(i,j )     & 
-    -  (ns(i,j)   +ne(i-1,j))     * y(i,j+1)    &
-    -  (ns(i,j-1) +ne(i-1,j-1))  * y(i,j-1)    &
-    -  ew(i,j)     * y(i+1,j)    &
-    -  ne(i,j-1)   * y(i+1,j-1)  &
-    ) /ne(i,j) 
-  end do
-  ! bottom boundary
-  j = 2
-  do i = 3, n-2
-    y(i+1,j+1)  = (f(i,j) - (cc(i,j)+ns(i,j-1))     * y(i,j )     & 
-    -  ns(i,j)                 * y(i,j+1)    &
-    -  (ew(i,j) +ne(i,j-1))     * y(i+1,j)    &
-    -  (ew(i-1,j)+ne(i-1,j-1)) * y(i-1,j)    &
-    -  ne(i-1,j)               * y(i-1,j+1)  & 
-    ) /ne(i,j) 
-  end do
-
-  do j = 3, m-2
-    do i = 3, n-2
-      y(i+1,j+1)  = (f(i,j)- cc(i,j)     * y(i,j )     & 
-             -  ns(i,j)     * y(i,j+1)    &
-             -  ns(i,j-1)   * y(i,j-1)    &
-             -  ew(i,j)     * y(i+1,j)    &
-             -  ew(i-1,j)   * y(i-1,j)    &
-             -  ne(i,j-1)   * y(i+1,j-1)  &
-             -  ne(i-1,j)   * y(i-1,j+1)  & 
-             -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
+  do j = 2, m-2
+    do i = 2, n-2
+        y(i+1,j+1)  = (f(i,j)- cc(i,j)     * y(i,j )     & 
+               -  ns(i,j)     * y(i,j+1)    &
+               -  ns(i,j-1)   * y(i,j-1)    &
+               -  ew(i,j)     * y(i+1,j)    &
+               -  ew(i-1,j)   * y(i-1,j)    &
+               -  ne(i,j-1)   * y(i+1,j-1)  &
+               -  ne(i-1,j)   * y(i-1,j+1)  & 
+               -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
     end do
   end do
   tu(1:n-2,1:m-2) = y(2:n-1,2:m-1) 
   !
   !u(:,:) = u(:,:)*cc(:,:)
-  write(*,*) 'final u'
-  write(*,'(5f18.7)')  tu(:,:)
+  !write(*,*) 'final u'
+  !write(*,'(5f18.5)')  u(:,:)
   !write(*,*) 'final f'
   !write(*,'(5f18.5)')  f(:,:)
   !y(:,:) = 0.
   ry(:,:) = u(:,:)
   ry(2:n-1,2:m-1) = tu
-  ry(2:n-1,1) = tu(1:n-2,1)
-  ry(2:n-1,m) = tu(1:n-2,m-2)
-  
-  ry(1,2:m-1) = tu(1,1:m-2)
-  ry(n,2:m-1) = tu(n-2,1:m-2)
-  ry(1,1) = tu(1,1)
-  ry(1,m) = tu(1,m-2)
-  ry(n,1) = tu(n-2,1)
-  ry(n,m) = tu(n-2,m-2)
-
   y(:,:) = 0.0
   call calc_rhs(cc,ns,ew,ne,ry,f,y,n,m,rr)
   write(*,*) 'rr in evp  :', rr
-  write(*,'(5e18.5)') y(2:n-1,2:m-1) 
+  write(*,'(5e18.5)') y
 end subroutine 
 
 
