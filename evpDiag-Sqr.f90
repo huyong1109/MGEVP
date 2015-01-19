@@ -5,9 +5,9 @@ program main
   real*8,parameter :: rtol = 1.0e-3
   integer, parameter :: n = 44
   integer, parameter :: m = 36
-  integer, parameter :: nn =10
-  integer, parameter :: mm =10
-  integer, parameter :: miter = 200
+  integer, parameter :: nn =44
+  integer, parameter :: mm =18
+  integer, parameter :: miter = 50
   integer, parameter :: choice = 2
   integer, parameter :: solver = 1
   character*2 :: grd  = '00'
@@ -150,10 +150,10 @@ program main
 
    tu(:,:) = u(:,:) 
    call evppcg(cc,ns,ew,ne,tu,f,n,m,nn,mm,ndi,mdi,nb,mb,tol,miter)
-   tu(:,:) = u(:,:) 
-   call diagpcg(cc,ns,ew,ne,tu,f,n,m,tol,miter)
-   tu(:,:) = u(:,:) 
-   call pcg(cc,ns,ew,ne,tu,f,n,m,tol,miter)
+   !@tu(:,:) = u(:,:) 
+   !call diagpcg(cc,ns,ew,ne,tu,f,n,m,tol,miter)
+   !tu(:,:) = u(:,:) 
+   !call pcg(cc,ns,ew,ne,tu,f,n,m,tol,miter)
    !call testevp(cc,ns,ew,ne,u,f,n,m)
 
    write(*,*) 'tu0'
@@ -177,9 +177,9 @@ program main
   write(*,*) 'r'
   write(*,'(5f18.5)') r
   write(*,*) 'pre'
-  call exppre(cc,ns,ew,ne,rinv,n,m)
+  !call exppre(cc,ns,ew,ne,rinv,n,m)
   write(*,*) 'evp'
-  call expevp(cc,ns,ew,ne,rinv,u,tu,r,n,m)
+  !call expevp(cc,ns,ew,ne,rinv,u,tu,r,n,m)
   end subroutine
 
   subroutine analytic_init(f,n,m,choice)
@@ -299,10 +299,10 @@ program main
 
   end subroutine
 
-  subroutine evppre5p(cc,ne,rinv,landindx,n,m,nn,mm,ndi,mdi,nb,mb)
+  subroutine evppre5p(cc,ns,ew,rinv,landindx,n,m,nn,mm,ndi,mdi,nb,mb)
   implicit none
   integer,intent(in) :: n,m  ! total block size
-  real*8,dimension(n,m),intent(in) :: cc,ne
+  real*8,dimension(n,m),intent(in) :: cc,ns,ew
   real*8,dimension(nb*mb,nn,nn),intent(inout):: rinv
   integer,dimension(nb,mb),intent(inout):: landindx
   integer,intent(in) :: nn,mm  ! small block ideal size
@@ -321,14 +321,14 @@ program main
     do j = 1, mb
       js = mdi(j)-1
       je = mdi(j+1) 
-      if(minval(abs(ne(is+1:ie-1,js+1:je-1))) == 0.0 ) then 
+      if(minval(abs(ns(is+1:ie-1,js+1:je-1))) == 0.0 ) then 
         landindx(i,j) = 1
         rinv((i-1)*mb+j,:,:) = 0.
       else 
         landindx(i,j) = 0
         lm = (je-js) +1
         write(*,*) 'j : ', js, je
-        call exppre5p(cc(is:ie,js:je),ne(is:ie,js:je),rinv((i-1)*mb+j,1:l,1:l),ln,lm)
+        call exppre5p(cc(is:ie,js:je),ns(is:ie,js:je),ew(is:ie,js:je),rinv((i-1)*mb+j,1:l,1:l),ln,lm)
       end if 
     end do 
   end do 
@@ -336,105 +336,10 @@ program main
 
   end subroutine 
 
-  subroutine evppre(cc,ns,ew,ne,rinv,landindx,n,m,nn,mm,ndi,mdi,nb,mb)
+ subroutine evpprecond5p(cc,ns,ew,rinv,landindx,u,f,n,m,nn,mm,ndi,mdi,nb,mb)
   implicit none
   integer,intent(in) :: n,m  ! total block size
-  real*8,dimension(n,m),intent(in) :: cc,ns,ew,ne
-  real*8,dimension(nb*mb,nn+mm-3,nn+mm-3),intent(inout):: rinv
-  integer,dimension(nb,mb),intent(inout):: landindx
-  integer,intent(in) :: nn,mm  ! small block ideal size
-  integer,intent(in) :: nb, mb  ! blocks on x and y direction 
-  integer,intent(in) :: ndi(nb+1),mdi(mb+1) ! bound index 
-
-  ! local 
-  integer :: i,j,is,ie,js,je,ln,lm,l
-  do i = 1, nb
-    is = ndi(i)-1
-    ie = ndi(i+1)
-    ln = (ie-is) +1
-    do j = 1, mb
-      js = mdi(j)-1
-      je = mdi(j+1) 
-      if(minval(abs(ne(is+1:ie-1,js+1:je-1))) == 0.0 ) then 
-        landindx(i,j) = 1
-        rinv((i-1)*mb+j,:,:) = 0.
-      else 
-        landindx(i,j) = 0
-        lm = (je-js) +1
-        l  = ln + lm -5
-        write(*,*) 'i : ', is, ie
-        write(*,*) 'j : ', js, je
-        write(*,*) 'l : ', l,'nn+mm-3',nn+mm-3
-        call exppre(cc(is:ie,js:je),ns(is:ie,js:je),ew(is:ie,js:je),ne(is:ie,js:je),rinv((i-1)*mb+j,1:l,1:l),ln,lm)
-      end if 
-    end do 
-  end do 
-  write(*,*) 'total block ', nb*mb, ' land block ',sum(landindx)
-
-  end subroutine 
-  subroutine evpprecond(cc,ns,ew,ne,rinv,landindx,u,f,n,m,nn,mm,ndi,mdi,nb,mb)
-  implicit none
-  integer,intent(in) :: n,m  ! total block size
-  real*8,dimension(n,m),intent(in) :: cc,ns,ew,ne,f
-  real*8,dimension(n,m),intent(inout) :: u
-  real*8,dimension(nb*mb,nn+mm-3,nn+mm-3),intent(inout):: rinv
-  integer,dimension(nb,mb),intent(in):: landindx
-  integer,intent(in) :: nn,mm  ! small block ideal size
-  integer,intent(in) :: nb, mb  ! blocks on x and y direction 
-  integer,intent(in) :: ndi(nb+1),mdi(mb+1) ! bound index 
-
-  ! local 
-  integer :: i,j,is,ie,js,je,ln,lm,l
-  real*8,dimension(n,m) :: tu
-
-  write(*,'(a30)') 'EVPPRECOND input'
-  write(*,'(5e15.5)') f(:,:)
- 
-  tu = 0.0 
-  do i = 1, nb
-    is = ndi(i) -1
-    ie = ndi(i+1) 
-    ln = (ie-is) +1
-    do j = 1, mb
-      js = mdi(j) -1
-      je = mdi(j+1) 
-      lm = (je-js) +1
-      l  = ln + lm -5
-      write(*,*) 'i : ', is, ie,n
-      write(*,*) 'j : ', js, je,m
-      write(*,*) 'l : ', l,(i-1)*mb+j
-      if (landindx(i,j) == 1 ) then 
-        ! diagonal preconditioning for land blocks
-        where(cc(is+1:ie-1,js+1:je-1) /= 0.0) 
-          tu(is+1:ie-1,js+1:je-1) = & 
-                    f(is+1:ie-1,js+1:je-1)/cc(is+1:ie-1,js+1:je-1)
-        end where
-
-      else 
-        call expevp(cc(is:ie,js:je),ns(is:ie,js:je),ew(is:ie,js:je),ne(is:ie,js:je),rinv((i-1)*mb+j,1:l,1:l),u(is:ie,js:je),tu(is+1:ie-1,js+1:je-1),f(is:ie,js:je),ln,lm)
-      end if 
-    end do 
-  end do 
-  do i = 1, nb
-    is = ndi(i) -1
-    ie = ndi(i+1) 
-    do j = 1, mb
-      js = mdi(j)-1 
-      je = mdi(j+1) 
-      write(*,*) 'is+1,ie-1,js+1,je-1'
-      write(*,*) is+1,ie-1,js+1,je-1
-      u(is+1:ie-1,js+1:je-1) = tu(is+1:ie-1,js+1:je-1)
-    end do 
-  end do 
-      write(*,'(a30)') 'EVPPRECOND output'
-      write(*,'(5e15.5)') u(:,:)
-
-
-  end subroutine 
-  subroutine evpprecond5p(cc,ne,rinv,landindx,u,f,n,m,nn,mm,ndi,mdi,nb,mb)
-  implicit none
-  integer,intent(in) :: n,m  ! total block size
-  real*8,dimension(n,m),intent(in) :: cc,ne,f
+  real*8,dimension(n,m),intent(in) :: cc,ns,ew,f
   real*8,dimension(n,m),intent(inout) :: u
   real*8,dimension(nb*mb,nn,nn),intent(inout):: rinv
   integer,dimension(nb,mb),intent(in):: landindx
@@ -444,10 +349,16 @@ program main
 
   ! local 
   integer :: i,j,is,ie,js,je,ln,lm,l
-  real*8,dimension(n,m) :: tu
+  real*8,dimension(n,m) :: tu,tf
 
   write(*,'(a30)') 'EVPPRECOND input'
   write(*,'(5e15.5)') f(:,:)
+  tf = 0.0
+  !do i = 2, n-1
+  !  do j = 2, m-1
+  !    tf(i,j) = 0.5*f(i,j) + 0.125*(f(i,j+1) +f(i+1,j) +f(i,j-1) +f(i-1,j))
+  !  end do
+  !end do 
  
   tu = 0.0 
   do i = 1, nb
@@ -470,7 +381,7 @@ program main
         end where
 
       else 
-        call expevp5p(cc(is:ie,js:je),ne(is:ie,js:je),rinv((i-1)*mb+j,1:l,1:l),u(is:ie,js:je),tu(is+1:ie-1,js+1:je-1),f(is:ie,js:je),ln,lm)
+        call expevp5p(cc(is:ie,js:je),ns(is:ie,js:je),ew(is:ie,js:je),rinv((i-1)*mb+j,1:l,1:l),u(is:ie,js:je),tu(is+1:ie-1,js+1:je-1),f(is:ie,js:je),ln,lm)
       end if 
     end do 
   end do 
@@ -490,10 +401,10 @@ program main
 
 
   end subroutine 
-subroutine exppre5p(cc,ne,rinv,n,m)
+subroutine exppre5p(cc,ns,ew,rinv,n,m)
   implicit none
   integer,intent(in) :: n,m
-  real*8,dimension(n,m),intent(in) :: cc,ne
+  real*8,dimension(n,m),intent(in) :: cc,ns,ew
 
   real*8,dimension(n -2,n -2),intent(inout) :: rinv
 
@@ -507,34 +418,28 @@ subroutine exppre5p(cc,ne,rinv,n,m)
 
   nm = n -2
   y(:,:) = 0.0
-  if (mod(n,2) /= 0 ) then 
-    write(*,*) "Error!!! 5P evp requires that n is even"
-    call exit(1)
-  end if
   !  
   do ii = 2,n-1
     y(ii,2) = 1.0
-    do j = 2, m-1
+    do j = 2, m-2
       !!! from left to right, calculate odd points
-      do i = 2, n-2,2
-        y(i+1,j+1)  = (- cc(i,j)     * y(i,j )     & 
-        -  ne(i,j-1)   * y(i+1,j-1)  &
-        -  ne(i-1,j)   * y(i-1,j+1)  & 
-        -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
-      end do
-      !!! from right to left, calculate even points
-      do i = n-1,3,-2
-        y(i-1,j+1)  = (- cc(i,j)     * y(i,j )     & 
-        -  ne(i,j-1)   * y(i+1,j-1)  &
-        -  ne(i,j)     * y(i+1,j+1)  & 
-        -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i-1,j) 
+      do i = 2, n-1
+        y(i,j+1)  = (- cc(i,j)     * y(i,j )     & 
+        -  ew(i,j)   * y(i+1,j)  &
+        -  ns(i,j-1)   * y(i,j-1)  & 
+        -  ew(i-1,j) * y(i-1,j) ) /ns(i,j) 
       end do
     end do
 
     ! get F error
-
-    do i = 1,n-2
-      rinv(ii-1,i) = -y(i+1,m)
+    j = m -1
+    do i = 2,n-1
+      rinv(ii-1,i-1) =  &
+        -  cc(i,j) * y(i,j)     & 
+        -  ew(i,j) * y(i+1,j)  &
+        -  ns(i,j-1) * y(i,j-1)  & 
+        -  ew(i-1,j) * y(i-1,j) &
+        -  ns(i,j) *y(i,j+1) 
     end do 
 
     y(ii,2) = 0.0
@@ -549,7 +454,7 @@ subroutine exppre5p(cc,ne,rinv,n,m)
 
   !! check pre rinv 
   write(*,*) 'rinv'
-  write(*,'(5f18.5)') rinv(:,:)
+  write(*,'(5e18.9)') rinv(:,:)
   rin(:,:) = 0.0
   do j = 1,nm
     do i = 1,nm
@@ -557,11 +462,11 @@ subroutine exppre5p(cc,ne,rinv,n,m)
         rin(i,j) = rin(i,j) + rinv(i,k)*work(k,j)
       end do 
       if (i == j ) then 
-        if (abs(rin(i,j) -1.0) > 1.0e-5 ) then 
+        if (abs(rin(i,j) -1.0) > 1.0e-8 ) then 
           write(*,*) 'fail in pre',i,j,rin(i,j)-1.0
         endif 
       else
-        if (abs(rin(i,j) -0.0) > 1.0e-5 ) then 
+        if (abs(rin(i,j) -0.0) > 1.0e-8 ) then 
           write(*,*) 'fail in pre',i,j,rin(i,j)
         endif 
       endif 
@@ -572,114 +477,11 @@ subroutine exppre5p(cc,ne,rinv,n,m)
 
 end subroutine 
 
-subroutine exppre(cc,ns,ew,ne,rinv,n,m)
-  implicit none
-  integer,intent(in) :: n,m
-  real*8,dimension(n,m),intent(in) :: cc,ns,ew,ne
 
-  real*8,dimension(n +m -5,n +m -5),intent(inout) :: rinv
-
-  !local 
-  integer :: i,j,k,ii,info
-  integer :: nm 
-  real*8,dimension(n,m) :: y
-  real*8,dimension(n +m -5,n +m -5) :: work,ipiv
-  real*8,dimension(n +m -5,n +m -5) :: rin
-  real*8,dimension(n +m -5) :: r
-
-  nm = n +m -5
-  y(:,:) = 0.0
-  ! left 
-  do ii = 1,m-2
-    y(2,m-ii) = 1.0
-    do j = 2, m-1
-      do i = 2, n-1
-        y(i+1,j+1)  = (- cc(i,j)     * y(i,j )     & 
-               -  ns(i,j)     * y(i,j+1)    &
-               -  ns(i,j-1)   * y(i,j-1)    &
-               -  ew(i,j)     * y(i+1,j)    &
-               -  ew(i-1,j)   * y(i-1,j)    &
-               -  ne(i,j-1)   * y(i+1,j-1)  &
-               -  ne(i-1,j)   * y(i-1,j+1)  & 
-               -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
-      end do
-    end do
-    ! get F error
-    
-    do i = 1,n-2
-      rinv(ii,i) = -y(i+2,m)
-    end do 
-
-    do j = 1,m-3
-      rinv(ii,n-2+j) = -y(n,m-j)
-    end do 
-
-    y(2,m-ii) = 0.0
-  end do 
-  ! buttom
-  do ii = 1,n-3
-    y(ii+2,2) = 1.0
-    do j = 2, m-1
-      do i = 2, n-1
-        y(i+1,j+1)  = (- cc(i,j)     * y(i,j )     & 
-               -  ns(i,j)     * y(i,j+1)    &
-               -  ns(i,j-1)   * y(i,j-1)    &
-               -  ew(i,j)     * y(i+1,j)    &
-               -  ew(i-1,j)   * y(i-1,j)    &
-               -  ne(i,j-1)   * y(i+1,j-1)  &
-               -  ne(i-1,j)   * y(i-1,j+1)  & 
-               -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
-      end do
-    end do
-    ! get F error
-    
-    do i = 1,n-2
-      rinv(m-2+ii,i) = -y(i+2,m)
-    end do 
-
-    do j = 1,m-3
-      rinv(m-2+ii,n-2+j) = -y(n,m-j)
-    end do 
-
-    y(ii+2,2) = 0.0
-  end do 
-
-  write(*,*) 'rin'
-  write(*,'(5e18.5)') rinv(:,:)
-  rin(:,:) = rinv(:,:)
-  work(:,:) = rinv(:,:)
-  call inverse(rin,rinv,nm)
-
-
-  !! check pre rinv 
-  write(*,*) 'rinv'
-  write(*,'(5f18.5)') rinv(:,:)
-  rin(:,:) = 0.0
-  do j = 1,nm
-    do i = 1,nm
-      do k = 1,nm
-        rin(i,j) = rin(i,j) + rinv(i,k)*work(k,j)
-      end do 
-      if (i == j ) then 
-        if (abs(rin(i,j) -1.0) > 1.0e-5 ) then 
-          write(*,*) 'fail in pre',i,j,rin(i,j)-1.0
-        endif 
-      else
-        if (abs(rin(i,j) -0.0) > 1.0e-5 ) then 
-          write(*,*) 'fail in pre',i,j,rin(i,j)
-        endif 
-      endif 
-    end do 
-  end do 
-  !write(*,*) 'work'
-  !write(*,*) rin(:,:)
-
-end subroutine 
-
-subroutine expevp5p(cc,ne,rinv,u,tu,f,n,m)
+subroutine expevp5p(cc,ns,ew,rinv,u,tu,f,n,m)
   implicit none
   integer:: n,m
-  real*8,dimension(n,m),intent(in) :: cc,ne
+  real*8,dimension(n,m),intent(in) :: cc,ns,ew
   real*8,dimension(n,m),intent(in) :: f
   real*8,dimension(n,m),intent(in) :: u
   real*8,dimension(n-2,m-2),intent(inout) :: tu
@@ -701,27 +503,25 @@ subroutine expevp5p(cc,ne,rinv,u,tu,f,n,m)
   y(:,:) = u(:,:) 
   y(2:n-1,2) = y(2:n-1,1)
   y(2,3:m-1) = y(1,3:m-1)
-  do j = 2, m-1
+  do j = 2, m-2
     !!! from left to right, calculate odd points
       do i = 2, n-2,2
-        y(i+1,j+1)  = (- cc(i,j)     * y(i,j )     & 
-               -  ne(i,j-1)   * y(i+1,j-1)  &
-               -  ne(i-1,j)   * y(i-1,j+1)  & 
-               -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
-      end do
-    !!! from right to left, calculate even points
-      do i = n-1,3,-2
-        y(i-1,j+1)  = (- cc(i,j)     * y(i,j )     & 
-               -  ne(i,j-1)   * y(i+1,j-1)  &
-               -  ne(i,j)     * y(i+1,j+1)  & 
-               -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i-1,j) 
+        y(i,j+1)  = (f(i,j)- cc(i,j)     * y(i,j )     & 
+        -  ew(i,j)   * y(i+1,j)  &
+        -  ns(i,j-1)   * y(i,j-1)  & 
+        -  ew(i-1,j) * y(i-1,j) ) /ns(i,j) 
       end do
   end do
   write(*,*) 'y(:,2)'
   write(*,'(5f18.5)') y(:,:)
-
-  do i = 1,n-2
-    r(i) = y(i+1,m)-u(i+1,m)
+  j = m-1
+  do i = 2,n-1
+    r(i-1) = f(i,j)  &
+        -  cc(i,j) * y(i,j)     & 
+        -  ew(i,j) * y(i+1,j)  &
+        -  ns(i,j-1) * y(i,j-1)  & 
+        -  ew(i-1,j) * y(i-1,j)  &
+        -  ns(i,j) *y(i,j+1) 
   end do 
 
 
@@ -731,27 +531,20 @@ subroutine expevp5p(cc,ne,rinv,u,tu,f,n,m)
   write(*,'(5f18.5)') rinv(:,:)
   do i = 1,n-2
       do k = 1,nm
-        y(i+1,2)  = y(i+1,2) + rinv(k,i)*r(k)
+        y(i+1,2)  = y(i+1,2) - rinv(k,i)*r(k)
       end do 
   end do 
 
   write(*,*) 'y(:,2)'
   write(*,'(5f18.5)') y(:,:)
 
-  do j = 2, m-2
+  do j = 2, m-1
     !!! from left to right, calculate odd points
     do i = 2, n-2,2
-      y(i+1,j+1)  = (- cc(i,j)     * y(i,j )     & 
-      -  ne(i,j-1)   * y(i+1,j-1)  &
-      -  ne(i-1,j)   * y(i-1,j+1)  & 
-      -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
-    end do
-    !!! from right to left, calculate even points
-    do i = n-1,3,-2
-      y(i-1,j+1)  = (- cc(i,j)     * y(i,j )     & 
-      -  ne(i,j-1)   * y(i+1,j-1)  &
-      -  ne(i,j)     * y(i+1,j+1)  & 
-      -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i-1,j) 
+        y(i,j+1)  = (f(i,j)- cc(i,j)     * y(i,j )     & 
+        -  ew(i,j)   * y(i+1,j)  &
+        -  ns(i,j-1)   * y(i,j-1)  & 
+        -  ew(i-1,j) * y(i-1,j) ) /ns(i,j) 
     end do
   end do
   tu(1:n-2,1:m-2) = y(2:n-1,2:m-1) 
@@ -768,100 +561,6 @@ subroutine expevp5p(cc,ne,rinv,u,tu,f,n,m)
   !call calc_rhs(cc,ns,ew,ne,ry,f,y,n,m,rr)
   !write(*,*) 'rr in evp  :', rr
   !write(*,'(5e18.5)') y
-
-end subroutine 
-subroutine expevp(cc,ns,ew,ne,rinv,u,tu,f,n,m)
-  implicit none
-  integer:: n,m
-  real*8,dimension(n,m),intent(in) :: cc,ns,ew,ne
-  real*8,dimension(n,m),intent(in) :: f
-  real*8,dimension(n,m),intent(in) :: u
-  real*8,dimension(n-2,m-2),intent(inout) :: tu
-
-  real*8,dimension(n+m-5,n+m-5),intent(in) :: rinv
-
-  !local 
-  integer :: i,j,k,nm
-  real*8,dimension(n,m) :: y,ry,ff
-  real*8,dimension(n+m-5) :: r
-  real*8 :: rr
-
-  nm = n+m-5
-  write(*,*) 'inital u'
-  write(*,'(5f18.5)')  u(:,:)
-  write(*,*) 'inital f'
-  write(*,'(5f18.5)')  f(:,:)
-
-  y(:,:) = u(:,:) 
-  y(2:n-1,2) = y(2:n-1,1)
-  y(2,3:m-1) = y(1,3:m-1)
-  do j = 2, m-1
-    do i = 2, n-1
-        y(i+1,j+1)  = (f(i,j)- cc(i,j)     * y(i,j )     & 
-               -  ns(i,j)     * y(i,j+1)    &
-               -  ns(i,j-1)   * y(i,j-1)    &
-               -  ew(i,j)     * y(i+1,j)    &
-               -  ew(i-1,j)   * y(i-1,j)    &
-               -  ne(i,j-1)   * y(i+1,j-1)  &
-               -  ne(i-1,j)   * y(i-1,j+1)  & 
-               -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
-    end do
-  end do
-  write(*,*) 'y(:,2)'
-  write(*,'(5f18.5)') y(:,:)
-
-  do i = 1,n-2
-    r(i) = y(i+2,m)-u(i+2,m)
-  end do 
-
-  do j = 1,m-3
-    r(n-2+j) = y(n,m-j) -u(n,m-j)
-  end do 
-
-  write(*,*) 'r'
-  write(*,'(5f18.5)') r(:)
-  write(*,*) 'rinv'
-  write(*,'(5f18.5)') rinv(:,:)
-  do j = 1,m-2
-      do k = 1,nm
-        y(2,m-j)  = y(2,m-j) + rinv(k,j)*r(k)
-      end do 
-  end do 
-  do i = 1,n-3
-      do k = 1,nm
-        y(i+2,2)  = y(i+2,2) + rinv(k,m-2+i)*r(k)
-      end do 
-  end do 
-
-  write(*,*) 'y(:,2)'
-  write(*,'(5f18.5)') y(:,:)
-
-  do j = 2, m-2
-    do i = 2, n-2
-        y(i+1,j+1)  = (f(i,j)- cc(i,j)     * y(i,j )     & 
-               -  ns(i,j)     * y(i,j+1)    &
-               -  ns(i,j-1)   * y(i,j-1)    &
-               -  ew(i,j)     * y(i+1,j)    &
-               -  ew(i-1,j)   * y(i-1,j)    &
-               -  ne(i,j-1)   * y(i+1,j-1)  &
-               -  ne(i-1,j)   * y(i-1,j+1)  & 
-               -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
-    end do
-  end do
-  tu(1:n-2,1:m-2) = y(2:n-1,2:m-1) 
-  !
-  !u(:,:) = u(:,:)*cc(:,:)
-  !write(*,*) 'final u'
-  !write(*,'(5f18.5)')  u(:,:)
-  !write(*,*) 'final f'
-  !write(*,'(5f18.5)')  f(:,:)
-  !y(:,:) = 0.
-  ry(:,:) = u(:,:)
-  ry(2:n-1,2:m-1) = tu
-  y(:,:) = 0.0
-  call calc_rhs(cc,ns,ew,ne,ry,f,y,n,m,rr)
-  write(*,*) 'rr in evp  :', rr
-  write(*,'(5e18.5)') y
 
 end subroutine 
 
@@ -931,6 +630,7 @@ do while ((mu > tol) .and. (iter < miter))
 end do 
   write(*,'(A15,I5.3)') 'CG ITER ',iter
 end
+
 subroutine evppcg(cc,ns,ew,ne,u,f,n,m,nn,mm,ndi,mdi,nb,mb,tol,miter)
 implicit none 
   integer,intent(in)  :: n,m
@@ -942,16 +642,23 @@ implicit none
   integer,intent(in):: miter
   real*8,intent(in) :: tol
   ! local 
-  real*8,dimension(nb*mb,nn+mm-3,nn+mm-3):: rinv
+  real*8,dimension(nb*mb,nn,nn):: rinv,frinv
+  real*8,dimension(n,m)  :: wgtE,wgtN
+  real*8,dimension(n,m)  :: fcc,fe,fn
   integer,dimension(nb,mb) :: landindx
   integer:: iter
-  real*8,dimension(n,m) :: p,ap,s,au,r,z
+  real*8,dimension(n,m) :: p,ap,s,au,r,z,fz
   real*8,dimension(n,m) :: sw
   real*8 :: mu,nu,rho,alpha,rr
   
   sw(:,:) = 0.
   !call evppre(cc,sw,sw,ne,rinv,landindx,n,m,nn,mm,ndi,mdi,nb,mb)
-  call evppre5p(cc,ne,rinv,landindx,n,m,nn,mm,ndi,mdi,nb,mb)
+  call DiagSqr(ns,ew,ne,wgtN,wgtE,n,m)
+  call evppre5p(cc,wgtN,wgtE,rinv,landindx,n,m,nn,mm,ndi,mdi,nb,mb)
+  fcc(:,:) = 0.5
+  fe(:,:) = 0.125
+  fn(:,:) = 0.125
+  call evppre5p(fcc,fn,fe,frinv,landindx,n,m,nn,mm,ndi,mdi,nb,mb)
   !u(2:n-1,2:m-1) = 0.
   
   !call evpprecond(cc,ns,ew,ne,rinv,landindx,u,f,n,m,nn,mm,ndi,mdi,nb,mb)
@@ -964,17 +671,23 @@ implicit none
   call matrixmultiple(cc,ns,ew,ne,u,au,n,m)
   r(:,:) = f(:,:) - au(:,:)
   !z(:,:) = u(:,:)!/cc(:,:) 
-  z(2:n-1,2:m-1) = 0.
+  z = 0.
+  fz= 0.
+  !z(2:n-1,2:m-1) = 0.
+  !fz(2:n-1,2:m-1) = 0.
   !where(cc(:,:) /= 0.0) 
   !  z(:,:) = r(:,:)/cc(:,:)
   !else where 
   !  z(:,:) = 0.0
   !end where
 
-  !write(*,*) 'initial r '
-  !write(*,'(5e18.5)') r
+  write(*,*) 'initial r '
+  write(*,'(5e18.5)') r
   !call evpprecond(cc,sw,sw,ne,rinv,landindx,z,r,n,m,nn,mm,ndi,mdi,nb,mb)
-  call evpprecond5p(cc,ne,rinv,landindx,z,r,n,m,nn,mm,ndi,mdi,nb,mb)
+  call evpprecond5p(fcc,fn,fe,frinv,landindx,fz,r,n,m,nn,mm,ndi,mdi,nb,mb)
+  write(*,*) 'initial fz '
+  write(*,'(5e18.5)') fz
+  call evpprecond5p(cc,wgtN,wgtE,rinv,landindx,z,fz,n,m,nn,mm,ndi,mdi,nb,mb)
   !call matrixmultiple(cc,ns,ew,ne,z,au,n,m)
   !write(*,*) 'initial z '
   !write(*,'(5e18.5)') z(:,:)
@@ -994,14 +707,18 @@ implicit none
     u(:,:) = u(:,:) + alpha*p(:,:)
     r(:,:) = r(:,:) - alpha*ap(:,:)
     !z(:,:) = u(:,:) !/cc(:,:)
-    z(2:n-1,2:m-1) = 0.
+  !  z(2:n-1,2:m-1) = 0.
+  !  fz(2:n-1,2:m-1) = 0.
+  z = 0.
+  fz= 0.
     !where(cc(:,:) /= 0.0) 
     !  z(:,:) = r(:,:)/cc(:,:)
     !else where 
     !  z(:,:) = 0.0
     !end where
     !call evpprecond(cc,sw,sw,ne,rinv,landindx,z,r,n,m,nn,mm,ndi,mdi,nb,mb)
-    call evpprecond5p(cc,ne,rinv,landindx,z,r,n,m,nn,mm,ndi,mdi,nb,mb)
+    call evpprecond5p(fcc,fn,fe,frinv,landindx,fz,r,n,m,nn,mm,ndi,mdi,nb,mb)
+    call evpprecond5p(cc,wgtN,wgtE,rinv,landindx,z,fz,n,m,nn,mm,ndi,mdi,nb,mb)
     call  vectornorm(r,r,rr,n,m)
     !call lev_evp(ax,bx,cc,ay,by,rinv,z,r,n,nb,m,mb,nn)
     if(rr==0.)  exit
@@ -1013,6 +730,32 @@ implicit none
   end do 
   write(*,'(A15,I5.3)') 'EVPPCG ITER ',iter
  end subroutine
+
+
+subroutine DiagSqr(ns,ew,ne,wgtN,wgtE,n,m)
+  integer :: n,m
+  real*8,dimension(n,m),intent(in) :: ns,ew,ne
+  real*8,dimension(n,m),intent(out) :: wgtN, wgtE
+
+integer :: i,j
+do i = 1, n-1 
+  do j = 2, m-1
+    wgtE(i,j) =  0.5*(ne(i,j)  + ne(i,j-1)) +ew(i,j)
+  end do 
+end do 
+do i = 2, n-1 
+  do j = 1, m-1
+    wgtN(i,j) =  0.5*(ne(i,j)  + ne(i-1,j)) +ns(i,j)
+  end do 
+end do 
+!write(*,*) 'ns'
+!write(*,*) ns(:,:)
+!write(*,*) 'wgtE'
+!write(*,*) wgtE(:,:)
+!write(*,*) 'wgtN'
+!write(*,*) wgtN(:,:)
+
+end subroutine
 
 subroutine diagpcg(cc,ns,ew,ne,u,f,n,m,tol,miter)
 
