@@ -432,12 +432,37 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
     end do
     ! get F error
      
-    do i = 1,n-2
-      rinv(ii,i) = y(i+1,m)-y(i+1,m-1)
+    do i = 2,n-1
+      y(i,m) = y(i,m-1)
     end do 
-
-    do j = 2,m-2
-      rinv(ii,n-2+j-1) = y(n,m-j)-y(n-1,m-j)
+    do j = 1,m-2
+      y(n,m-j) = y(n-1,m-j)
+    end do 
+      y(n,m) = y(n-1,m-1)
+  
+    j = m-1
+    do i = 2,n-1
+      rinv(ii,i-1) = - cc(i,j)     * y(i,j )     & 
+               -  ns(i,j)     * y(i,j+1)    &
+               -  ns(i,j-1)   * y(i,j-1)    &
+               -  ew(i,j)     * y(i+1,j)    &
+               -  ew(i-1,j)   * y(i-1,j)    &
+               -  ne(i,j-1)   * y(i+1,j-1)  &
+               -  ne(i-1,j)   * y(i-1,j+1)  & 
+               -  ne(i-1,j-1) * y(i-1,j-1)  
+               -  ne(i,j)* y(i+1,j+1) 
+    end do 
+    i = n-1
+    do j = m-2,2,-1
+      rinv(ii,n-2+j-1) =  - cc(i,j)     * y(i,j )     & 
+               -  ns(i,j)     * y(i,j+1)    &
+               -  ns(i,j-1)   * y(i,j-1)    &
+               -  ew(i,j)     * y(i+1,j)    &
+               -  ew(i-1,j)   * y(i-1,j)    &
+               -  ne(i,j-1)   * y(i+1,j-1)  &
+               -  ne(i-1,j)   * y(i-1,j+1)  & 
+               -  ne(i-1,j-1) * y(i-1,j-1)  
+               -  ne(i,j)* y(i+1,j+1) 
     end do 
 
     y(2,m-ii) = 0.0
@@ -463,14 +488,39 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
     end do
     ! get F error
      
-    do i = 1,n-2
-      rinv(ii,i) = y(i+1,m)-y(i+1,m-1)
-    end do 
 
-    do j = 2,m-2
-      rinv(ii,n-2+j-1) = y(n,m-j)-y(n-1,m-j)
+    do i = 2,n-1
+      y(i,m) = y(i,m-1)
     end do 
-
+    do j = 1,m-2
+      y(n,m-j) = y(n-1,m-j)
+    end do 
+      y(n,m) = y(n-1,m-1)
+  
+    j = m-1
+    do i = 2,n-1
+      rinv(ii,i-1) = - cc(i,j)     * y(i,j )     & 
+               -  ns(i,j)     * y(i,j+1)    &
+               -  ns(i,j-1)   * y(i,j-1)    &
+               -  ew(i,j)     * y(i+1,j)    &
+               -  ew(i-1,j)   * y(i-1,j)    &
+               -  ne(i,j-1)   * y(i+1,j-1)  &
+               -  ne(i-1,j)   * y(i-1,j+1)  & 
+               -  ne(i-1,j-1) * y(i-1,j-1)  
+               -  ne(i,j)* y(i+1,j+1) 
+    end do 
+    i = n-1
+    do j = m-2,2,-1
+      rinv(ii,n-2+j-1) =  - cc(i,j)     * y(i,j )     & 
+               -  ns(i,j)     * y(i,j+1)    &
+               -  ns(i,j-1)   * y(i,j-1)    &
+               -  ew(i,j)     * y(i+1,j)    &
+               -  ew(i-1,j)   * y(i-1,j)    &
+               -  ne(i,j-1)   * y(i+1,j-1)  &
+               -  ne(i-1,j)   * y(i-1,j+1)  & 
+               -  ne(i-1,j-1) * y(i-1,j-1)  
+               -  ne(i,j)* y(i+1,j+1) 
+    end do 
     y(2,2) = 0.0
     y(1,1) = 0.0
     y(2,1) = 0.0
@@ -494,12 +544,37 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
     end do
     ! get F error
     
-    do i = 1,n-2
-      rinv(ii,i) = y(i+1,m)-y(i+1,m-1)
+    do i = 2,n-1
+      y(i,m) = y(i,m-1)
     end do 
-
-    do j = 2,m-2
-      rinv(ii,n-2+j-1) = y(n,m-j)-y(n-1,m-j)
+    do j = 1,m-2
+      y(n,m-j) = y(n-1,m-j)
+    end do 
+      y(n,m) = y(n-1,m-1)
+  
+    j = m-1
+    do i = 2,n-1
+      rinv(ii+m-2,i-1) = - cc(i,j)     * y(i,j )     & 
+               -  ns(i,j)     * y(i,j+1)    &
+               -  ns(i,j-1)   * y(i,j-1)    &
+               -  ew(i,j)     * y(i+1,j)    &
+               -  ew(i-1,j)   * y(i-1,j)    &
+               -  ne(i,j-1)   * y(i+1,j-1)  &
+               -  ne(i-1,j)   * y(i-1,j+1)  & 
+               -  ne(i-1,j-1) * y(i-1,j-1)  
+               -  ne(i,j)* y(i+1,j+1) 
+    end do 
+    i = n-1
+    do j = m-2,2,-1
+      rinv(ii+m-2,n-2+j-1) =  - cc(i,j)     * y(i,j )     & 
+               -  ns(i,j)     * y(i,j+1)    &
+               -  ns(i,j-1)   * y(i,j-1)    &
+               -  ew(i,j)     * y(i+1,j)    &
+               -  ew(i-1,j)   * y(i-1,j)    &
+               -  ne(i,j-1)   * y(i+1,j-1)  &
+               -  ne(i-1,j)   * y(i-1,j+1)  & 
+               -  ne(i-1,j-1) * y(i-1,j-1)  
+               -  ne(i,j)* y(i+1,j+1) 
     end do 
 
     y(ii+2,2) = 0.0
@@ -578,13 +653,40 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,tu,f,n,m)
   write(*,*) 'y(:,2)'
   write(*,'(5f18.5)') y(:,:)
 
-  do i = 1,n-2
-    r(i) = y(i+1,m)-y(i+1,m-1)
+  do i = 2,n-1
+    y(i,m) = y(i,m-1)
+  end do 
+  do j = 1,m-2
+    y(n,m-j) = y(n-1,m-j)
+  end do 
+    y(n,m) = y(n-1,m-1)
+  
+  j = m-1
+  do i = 2,n-1
+    r(i-1) = - cc(i,j)     * y(i,j )     & 
+             -  ns(i,j)     * y(i,j+1)    &
+             -  ns(i,j-1)   * y(i,j-1)    &
+             -  ew(i,j)     * y(i+1,j)    &
+             -  ew(i-1,j)   * y(i-1,j)    &
+             -  ne(i,j-1)   * y(i+1,j-1)  &
+             -  ne(i-1,j)   * y(i-1,j+1)  & 
+             -  ne(i-1,j-1) * y(i-1,j-1)  
+             -  ne(i,j)* y(i+1,j+1) 
+  end do 
+  i = n-1
+  do j = m-2,2,-1
+    r(n-2+j-1) =  - cc(i,j)     * y(i,j )     & 
+             -  ns(i,j)     * y(i,j+1)    &
+             -  ns(i,j-1)   * y(i,j-1)    &
+             -  ew(i,j)     * y(i+1,j)    &
+             -  ew(i-1,j)   * y(i-1,j)    &
+             -  ne(i,j-1)   * y(i+1,j-1)  &
+             -  ne(i-1,j)   * y(i-1,j+1)  & 
+             -  ne(i-1,j-1) * y(i-1,j-1)  
+             -  ne(i,j)* y(i+1,j+1) 
   end do 
 
-  do j = 2,m-2
-    r(n-2+j-1) = y(n,m-j) -y(n-1,m-j)
-  end do 
+
 
   write(*,*) 'r'
   write(*,'(5f18.5)') r(:)
