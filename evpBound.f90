@@ -432,13 +432,12 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
     end do
     ! get F error
      
-    do i = 2,n-1
+    do i = 1,n-1
       y(i,m) = y(i,m-1)
     end do 
-    do j = m-1,2
+    do j = 1,m
       y(n,j) = y(n-1,j)
     end do 
-      y(n,m) = y(n-1,m-1)
   
     j = m-1
     do i = 2,n-1
@@ -489,13 +488,12 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
     ! get F error
      
 
-    do i = 2,n-1
+    do i = 1,n-1
       y(i,m) = y(i,m-1)
     end do 
-    do j = 2,m-1
+    do j = 1,m
       y(n,j) = y(n-1,j)
     end do 
-      y(n,m) = y(n-1,m-1)
   
     j = m-1
     do i = 2,n-1
@@ -544,13 +542,12 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
     end do
     ! get F error
     
-    do i = 2,n-1
+    do i = 1,n-1
       y(i,m) = y(i,m-1)
     end do 
-    do j = 1,m-2
-      y(n,m-j) = y(n-1,m-j)
+    do j = 1,m
+      y(n,j) = y(n-1,j)
     end do 
-      y(n,m) = y(n-1,m-1)
   
     j = m-1
     do i = 2,n-1
@@ -657,13 +654,12 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,tu,f,n,m)
   write(*,*) 'y(:,2)'
   write(*,'(5f18.5)') y(:,:)
 
-  do i = 2,n-1
+  do i = 1,n-1
     y(i,m) = y(i,m-1)
   end do 
-  do j = 1,m-2
-    y(n,m-j) = y(n-1,m-j)
+  do j = 1,m
+    y(n,j) = y(n-1,j)
   end do 
-    y(n,m) = y(n-1,m-1)
   
   j = m-1
   do i = 2,n-1
@@ -725,9 +721,14 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,tu,f,n,m)
                -  ne(i-1,j-1) * y(i-1,j-1) ) /ne(i,j) 
     end do
   end do
-  y(2:n-1,m) = y(2:n-1,m-1)
-  y(n,2:m-1) = y(n-1,2:m-1)
-  y(n,m) = y(n-1,m-1)
+  do i = 1,n-1
+    y(i,m) = y(i,m-1)
+  end do 
+  do j = 1,m
+    y(n,j) = y(n-1,j)
+  end do 
+  
+  
   tu(1:n-2,1:m-2) = y(2:n-1,2:m-1) 
   !
   !u(:,:) = u(:,:)*cc(:,:)
