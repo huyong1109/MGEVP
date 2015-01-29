@@ -340,7 +340,7 @@ program main
   implicit none
   integer,intent(in) :: n,m  ! total block size
   real*8,dimension(n,m),intent(in) :: cc,ns,ew,ne
-  real*8,dimension(nb*mb,nn+mm-3,nn+mm-3),intent(inout):: rinv
+  real*8,dimension(nb*mb,nn+mm-1,nn+mm-1),intent(inout):: rinv
   integer,dimension(nb,mb),intent(inout):: landindx
   integer,intent(in) :: nn,mm  ! small block ideal size
   integer,intent(in) :: nb, mb  ! blocks on x and y direction 
@@ -377,7 +377,7 @@ program main
   integer,intent(in) :: n,m  ! total block size
   real*8,dimension(n,m),intent(in) :: cc,ns,ew,ne,f
   real*8,dimension(n,m),intent(inout) :: u
-  real*8,dimension(nb*mb,nn+mm-3,nn+mm-3),intent(inout):: rinv
+  real*8,dimension(nb*mb,nn+mm-1,nn+mm-1),intent(inout):: rinv
   integer,dimension(nb,mb),intent(in):: landindx
   integer,intent(in) :: nn,mm  ! small block ideal size
   integer,intent(in) :: nb, mb  ! blocks on x and y direction 
@@ -661,11 +661,11 @@ subroutine exppre(cc,ns,ew,ne,rinv,n,m)
         rin(i,j) = rin(i,j) + rinv(i,k)*work(k,j)
       end do 
       if (i == j ) then 
-        if (abs(rin(i,j) -1.0) > 1.0e-5 ) then 
+        if (abs(rin(i,j) -1.0) > 1.0e-12 ) then 
           write(*,*) 'fail in pre',i,j,rin(i,j)-1.0
         endif 
       else
-        if (abs(rin(i,j) -0.0) > 1.0e-5 ) then 
+        if (abs(rin(i,j) -0.0) > 1.0e-12 ) then 
           write(*,*) 'fail in pre',i,j,rin(i,j)
         endif 
       endif 
@@ -861,7 +861,7 @@ subroutine expevp(cc,ns,ew,ne,rinv,u,tu,f,n,m)
   y(:,:) = 0.0
   call calc_rhs(cc,ns,ew,ne,ry,f,y,n,m,rr)
   write(*,*) 'rr in evp  :', rr
-  write(*,'(5e18.5)') y
+  write(*,'(5e18.5)') y(2:n-1,2:m-1)
 
 end subroutine 
 
@@ -942,16 +942,15 @@ implicit none
   integer,intent(in):: miter
   real*8,intent(in) :: tol
   ! local 
-  real*8,dimension(nb*mb,nn+mm-3,nn+mm-3):: rinv
+  real*8,dimension(nb*mb,nn+mm-1,nn+mm-1):: rinv
   integer,dimension(nb,mb) :: landindx
   integer:: iter
   real*8,dimension(n,m) :: p,ap,s,au,r,z
   real*8,dimension(n,m) :: sw
   real*8 :: mu,nu,rho,alpha,rr
   
-  sw(:,:) = 0.
-  !call evppre(cc,sw,sw,ne,rinv,landindx,n,m,nn,mm,ndi,mdi,nb,mb)
-  call evppre5p(cc,ne,rinv,landindx,n,m,nn,mm,ndi,mdi,nb,mb)
+  call evppre(cc,ns,ew,ne,rinv,landindx,n,m,nn,mm,ndi,mdi,nb,mb)
+  !call evppre5p(cc,ne,rinv,landindx,n,m,nn,mm,ndi,mdi,nb,mb)
   !u(2:n-1,2:m-1) = 0.
   
   !call evpprecond(cc,ns,ew,ne,rinv,landindx,u,f,n,m,nn,mm,ndi,mdi,nb,mb)
@@ -973,8 +972,8 @@ implicit none
 
   !write(*,*) 'initial r '
   !write(*,'(5e18.5)') r
-  !call evpprecond(cc,sw,sw,ne,rinv,landindx,z,r,n,m,nn,mm,ndi,mdi,nb,mb)
-  call evpprecond5p(cc,ne,rinv,landindx,z,r,n,m,nn,mm,ndi,mdi,nb,mb)
+  call evpprecond(cc,ns,ew,ne,rinv,landindx,z,r,n,m,nn,mm,ndi,mdi,nb,mb)
+  !call evpprecond5p(cc,ne,rinv,landindx,z,r,n,m,nn,mm,ndi,mdi,nb,mb)
   !call matrixmultiple(cc,ns,ew,ne,z,au,n,m)
   !write(*,*) 'initial z '
   !write(*,'(5e18.5)') z(:,:)
@@ -1000,8 +999,8 @@ implicit none
     !else where 
     !  z(:,:) = 0.0
     !end where
-    !call evpprecond(cc,sw,sw,ne,rinv,landindx,z,r,n,m,nn,mm,ndi,mdi,nb,mb)
-    call evpprecond5p(cc,ne,rinv,landindx,z,r,n,m,nn,mm,ndi,mdi,nb,mb)
+    call evpprecond(cc,ns,ew,ne,rinv,landindx,z,r,n,m,nn,mm,ndi,mdi,nb,mb)
+    !call evpprecond5p(cc,ne,rinv,landindx,z,r,n,m,nn,mm,ndi,mdi,nb,mb)
     call  vectornorm(r,r,rr,n,m)
     !call lev_evp(ax,bx,cc,ay,by,rinv,z,r,n,nb,m,mb,nn)
     if(rr==0.)  exit
